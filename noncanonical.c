@@ -12,6 +12,50 @@
 #define TRUE 1
 
 volatile int STOP=FALSE;
+
+char* readSupervision(int fd, int counter){
+
+	char set[5]=0x7E0303007E;
+	char buf[1];    
+	int res=0;
+    res = read(fd,buf,1);   /* returns after 1 chars have been input */
+    switch(counter){
+	case 0:
+		if(buf[0]==0x7E)
+		printf("SUCCESS\n");
+		else printf("ERROR\n");
+		break;
+	case 1:
+		break;
+	case 2:
+		break;
+	case 3:
+		break;
+	case 4:
+		break;
+			
+	}	
+}
+
+void llopen(int fd){
+ char ua[5]=0x7E0303017E;
+ char res[2];
+ int counter = 0;
+ while (STOP==FALSE) {       /* loop for input */
+  res[0]=readSupervision(fd,counter);
+  counter++;
+  res[1]='\0';	
+  if (counter==5){ 
+	 STOP=TRUE;
+  }
+
+ }
+	printf("Sending UA...\n");
+    writeBytes(fd,ua);
+}
+
+
+
 void writeBytes(int fd, char* message)
 {
   	
@@ -20,21 +64,22 @@ void writeBytes(int fd, char* message)
 	int sent = 0;
 
     while( (sent = write(fd,message,size+1)) < size ){
-        
         size -= sent;
     }
 	
 }
-void readBytes(int fd)
+
+
+char * readBytes(int fd)
 {
    	char collectedString[255]; 	
 	char buf[2];    
 	int counter=0,res=0;
     while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,1);   /* returns after 1 chars have been input */
+      
+	  res = read(fd,buf,1);   /* returns after 1 chars have been input */
       buf[1]='\0';	
       collectedString[counter]=buf[0]; 
-     // printf("%d:%s\n",res, buf);
       
       if (buf[0]=='\0'){ 
 	  collectedString[counter]=buf[0]; 
@@ -43,7 +88,8 @@ void readBytes(int fd)
       counter++;
     }
     printf("end result:%s\n",collectedString);
-	writeBytes(fd,collectedString);
+	return collectedString;
+	
 }
 
 int main(int argc, char** argv)
@@ -103,15 +149,9 @@ int main(int argc, char** argv)
     }
 
     printf("New termios structure set\n");
-	readBytes(fd);
- 	
+	llopen(fd);
+ 	//writeBytes(fd,readBytes(fd));
 
-    
-   // write(fd,collectedString,strlen(collectedString)+1); 
-
- /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
-  */
     pause(2);
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
