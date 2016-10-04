@@ -17,6 +17,42 @@
 
 volatile int STOP=FALSE;
 
+char llopen(){
+
+	int res;
+	int res2;
+	char set[5] = 0x7E0303007E;
+	char ua[5] = 0x7E0307017E;
+	int tam = strlen(set);
+	res = write(fd,set,tam);
+	char buf[5];
+
+	printf("%d bytes written\n", res);
+
+	int i = 0;
+	int i2 = 0;
+	while (STOP==FALSE) 
+	{
+	  res2 = read(fd,buf,1);
+	  if (buf[i] == 0x7E)
+		{	
+			if (i2 == 1)
+				break;
+			i2++;
+			i++;
+			continue;			
+		}
+ 
+	  if(ua[i] != buf[i])
+		{
+			STOP = TRUE;
+		}
+	  i++;
+
+	}
+	printf("Message received: %s\n", buf);
+}
+
 int main(int argc, char** argv)
 {
 
@@ -74,8 +110,11 @@ int main(int argc, char** argv)
       exit(-1);
     }
 
-    printf("Message to send: ");
+    //printf("Message to send: ");
 	
+	llopen();
+
+/*
 	gets(buf);
     
    	int tam = strlen(buf);
@@ -93,7 +132,7 @@ int main(int argc, char** argv)
          STOP = TRUE;    	
     }
 
-	printf("Message received: %s\n", buf_res);
+	printf("Message received: %s\n", buf_res);*/
 
   /* 
     O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
@@ -108,3 +147,6 @@ int main(int argc, char** argv)
     close(fd);
     return 0;
 }
+
+
+
