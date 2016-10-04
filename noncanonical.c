@@ -15,7 +15,7 @@ volatile int STOP=FALSE;
 
 char* readSupervision(int fd, int counter){
 
-	char set[5]=0x7E0303007E;
+	char set[5]={0x7E,0x03,0x03,0x00,0x7E};
 	char buf[1];    
 	int res=0;
     res = read(fd,buf,1);   /* returns after 1 chars have been input */
@@ -26,19 +26,31 @@ char* readSupervision(int fd, int counter){
 		else printf("ERROR\n");
 		break;
 	case 1:
+		if(buf[0]==0x03)
+		printf("SUCCESS\n");
+		else printf("ERROR\n");
 		break;
 	case 2:
+		if(buf[0]==0x03)
+		printf("SUCCESS\n");
+		else printf("ERROR\n");
 		break;
 	case 3:
+		if(buf[0]==0x00)
+		printf("SUCCESS\n");
+		else printf("ERROR\n");
 		break;
 	case 4:
+		if(buf[0]==0x7E)
+		printf("SUCCESS\n");
+		else printf("ERROR\n");
 		break;
 			
 	}	
 }
 
 void llopen(int fd){
- char ua[5]=0x7E0303017E;
+ char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
  char res[2];
  int counter = 0;
  while (STOP==FALSE) {       /* loop for input */
