@@ -5,7 +5,6 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
-#include <string.h>
 
 #define BAUDRATE B9600
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -13,13 +12,46 @@
 #define TRUE 1
 
 volatile int STOP=FALSE;
+void writeBytes(int fd, char* message)
+{
+  	
+	printf("SendBytes Initialized\n");
+    int size=strlen(message);
+	int sent = 0;
+
+    while( (sent = write(fd,message,size+1)) < size ){
+        
+        size -= sent;
+    }
+	
+}
+void readBytes(int fd)
+{
+   	char collectedString[255]; 	
+	char buf[2];    
+	int counter=0,res=0;
+    while (STOP==FALSE) {       /* loop for input */
+      res = read(fd,buf,1);   /* returns after 1 chars have been input */
+      buf[1]='\0';	
+      collectedString[counter]=buf[0]; 
+     // printf("%d:%s\n",res, buf);
+      
+      if (buf[0]=='\0'){ 
+	  collectedString[counter]=buf[0]; 
+	  STOP=TRUE;
+      }
+      counter++;
+    }
+    printf("end result:%s\n",collectedString);
+	writeBytes(fd,collectedString);
+}
 
 int main(int argc, char** argv)
 {
-    int fd,c, res, len;
+    int fd;
     struct termios oldtio,newtio;
-    char buf[255];
-    char str[255];
+
+ 
 
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
@@ -58,7 +90,7 @@ int main(int argc, char** argv)
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
+    leitura do(s) prÃ³ximo(s) caracter(es)
   */
 
 
@@ -71,37 +103,16 @@ int main(int argc, char** argv)
     }
 
     printf("New termios structure set\n");
-	
-	
-	int i = 0;
-    while (STOP==FALSE) {
-            
-      res = read(fd,buf+i,1); 
-      i++;
-      if(buf[i-1] == '\0') 
-         STOP = TRUE;    
-      
-	
-    }
-	printf("Message received: %s\n", buf);
+	readBytes(fd);
+ 	
 
-	int tam = strlen(buf);
-    	res = write(fd,buf,tam+1);   
-	sleep(1);
-    	printf("%d bytes written\n", res);
+    
+   // write(fd,collectedString,strlen(collectedString)+1); 
 
-      
-/*
-      len = strlen(str);
-      res = write(fd, str, len+1);
-      printf("%d bytes written\n", len+1);*/
-
-  /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
+ /* 
+    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guiÃ£o 
   */
-
-    //sleep(5);
-
+    pause(2);
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     return 0;
