@@ -17,14 +17,14 @@
 
 volatile int STOP=FALSE;
 
-char llopen(){
-
+char llopen(int fd){
+	
 	int res;
 	int res2;
-	char set[5] = 0x7E0303007E;
-	char ua[5] = 0x7E0307017E;
-	int tam = strlen(set);
-	res = write(fd,set,tam);
+	char set[5] = {0x7E,0x03,0x03,0x00,0x7E};
+	char ua[5] = {0x7E,0x03,0x07,0x01,0x7E};
+	
+	res = write(fd,set,5);
 	char buf[5];
 
 	printf("%d bytes written\n", res);
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 
     //printf("Message to send: ");
 	
-	llopen();
+	llopen(fd);
 
 /*
 	gets(buf);
