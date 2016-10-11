@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
@@ -17,45 +18,128 @@
 
 volatile int STOP=FALSE;
 
-char llopen(int fd){
-	
-	int res;
-	int res2;
-	char set[5] = {0x7E,0x03,0x03,0x00,0x7E};
-	char ua[5] = {0x7E,0x03,0x07,0x01,0x7E};
-	
-	res = write(fd,set,5);
-	char buf[5];
+int flag=1, conta=1;
 
-	printf("%d bytes written\n", res);
-
-	int i = 0;
-	int i2 = 0;
-	while (STOP==FALSE) 
-	{
-	  res2 = read(fd,buf,1);
-	  if (buf[i] == 0x7E)
-		{	
-			if (i2 == 1)
-				break;
-			i2++;
-			i++;
-			continue;			
-		}
- 
-	  if(ua[i] != buf[i])
-		{
-			STOP = TRUE;
-		}
-	  i++;
-
-	}
-	printf("Message received: %s\n", buf);
+void atende()                   // atende alarme
+{
+	printf("alarme # %d\n", conta);
+	flag=1;
+	conta++;
 }
 
+char writeSet(int fd,int manhoso)
+{
+	int res;	
+	//char set[5] = {0x7E,0x03,0x03,0x00,0x7E};
+	
+	
+	char set[5] = {0x7E,0x03,0x03,0x02,0x7E}; // TA MALE!
+	char set2[5] = {0x7E,0x03,0x03,0x00,0x7E};
+
+	
+	if( manhoso == 0){
+	res = write(fd,set,5);}
+	else{
+	res = write(fd,set2,5);}
+
+	
+	char buf[1];
+
+	printf("%d bytes written\n", res);	
+}
+
+char readUa(int fd)
+{
+	char buf[1];
+	char ua[5] = {0x7E,0x03,0x07,0x01,0x7E};
+	int res;
+	int counter = 0;
+
+	
+	while(conta < 4 && STOP == FALSE)
+	{
+
+		if(flag)
+		{  		
+			alarm(3); // 3 second alarm
+			flag=0;
+		}
+		
+		while (STOP==FALSE) 
+		{	
+			printf("start raeding \n");
+			res = read(fd,buf,1);
+			printf("%d",res);
+			if(res == 0)
+			{
+				//printf("Nsei");
+				//flag =1;
+				break;
+			}
+			//conta = 0;
+		switch(counter)
+		{
+		case 0:
+			if(buf[0]==ua[0])
+			printf("SUCCESS\n");
+			else printf("ERROR\n");
+			break;
+		case 1:
+			if(buf[0]==ua[1])
+			printf("SUCCESS\n");
+			else printf("ERROR\n");
+			break;
+		case 2:
+			if(buf[0]==ua[2])
+			printf("SUCCESS\n");
+			else printf("ERROR\n");
+			break;
+		case 3:
+			if(buf[0]==ua[3])
+			printf("SUCCESS\n");
+			else printf("ERROR\n");
+			break;
+		case 4:
+			if(buf[0]==ua[4])
+			printf("SUCCESS\n");
+			else printf("ERROR\n");
+			break;
+			
+		};  		
+	
+  		counter++;
+  		buf[1]='\0';	
+  		if (counter==5)
+		{ 
+			
+	 		STOP=TRUE;
+
+  		}
+	}
+		
+		
+	}
+
+	if(conta >=4)
+		{			
+			printf("Reception Error \n");	
+			writeSet(fd,1);
+		}
+
+	
+}
+
+
+char llopen(int fd)
+{
+	writeSet(fd,0);
+	readUa(fd);
+	
+}
 int main(int argc, char** argv)
 {
 
+	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
     int fd,c, res;
     struct termios oldtio,newtio;
     char buf[255], buf_res[255];
@@ -91,8 +175,8 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 1;   /* blocking read until 1 chars received */
+    newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
+    newtio.c_cc[VMIN]     = 0;   /* blocking read until 1 chars received */
 
 
 
@@ -146,6 +230,7 @@ int main(int argc, char** argv)
 
     close(fd);
     return 0;
+	
 }
 
 

@@ -49,22 +49,25 @@ char* readSupervision(int fd, int counter){
 	}	
 }
 
-void llopen(int fd){
- char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
- char res[2];
- int counter = 0;
- while (STOP==FALSE) {       /* loop for input */
-  res[0]=readSupervision(fd,counter);
-  counter++;
-  res[1]='\0';	
-  if (counter==5){ 
-	 STOP=TRUE;
-  }
+void llopen(int fd)
+{
+	char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
+	char res[2];
+	int counter = 0;
+	while (STOP==FALSE) 
+	{       
+		res[0]=readSupervision(fd,counter);
+	 	counter++;
+	  	res[1]='\0';	
+	  	if (counter==5)
+		{ 
+			STOP=TRUE;
+		}
 
- }
-	printf("Sending UA...\n");
-    writeBytes(fd,ua);
-}
+	 }
+		printf("Sending UA...\n");
+		writeBytes(fd,ua);
+	}
 
 
 
