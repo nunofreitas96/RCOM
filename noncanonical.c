@@ -5,6 +5,9 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <unistd.h> 
+#include <string.h> 
+#include <stdlib.h>
 
 #define BAUDRATE B9600
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -13,64 +16,7 @@
 
 volatile int STOP=FALSE;
 
-char* readSupervision(int fd, int counter){
-
-	char set[5]={0x7E,0x03,0x03,0x00,0x7E};
-	char buf[1];    
-	int res=0;
-    res = read(fd,buf,1);   /* returns after 1 chars have been input */
-    switch(counter){
-	case 0:
-		if(buf[0]==0x7E)
-		printf("SUCCESS\n");
-		else printf("ERROR\n");
-		break;
-	case 1:
-		if(buf[0]==0x03)
-		printf("SUCCESS\n");
-		else printf("ERROR\n");
-		break;
-	case 2:
-		if(buf[0]==0x03)
-		printf("SUCCESS\n");
-		else printf("ERROR\n");
-		break;
-	case 3:
-		if(buf[0]==0x00)
-		printf("SUCCESS\n");
-		else printf("ERROR\n");
-		break;
-	case 4:
-		if(buf[0]==0x7E)
-		printf("SUCCESS\n");
-		else printf("ERROR\n");
-		break;
-			
-	}	
-}
-
-void llopen(int fd)
-{
-	char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
-	char res[2];
-	int counter = 0;
-	while (STOP==FALSE) 
-	{       
-		res[0]=readSupervision(fd,counter);
-	 	counter++;
-	  	res[1]='\0';	
-	  	if (counter==5)
-		{ 
-			STOP=TRUE;
-		}
-
-	 }
-		printf("Sending UA...\n");
-		writeBytes(fd,ua);
-	}
-
-
-
+//Funções GUIA1
 void writeBytes(int fd, char* message)
 {
   	
@@ -87,13 +33,16 @@ void writeBytes(int fd, char* message)
 
 char * readBytes(int fd)
 {
-   	char collectedString[255]; 	
+   	char* collectedString=malloc (sizeof (char) * 255); 	
 	char buf[2];    
 	int counter=0,res=0;
     while (STOP==FALSE) {       /* loop for input */
       
 	  res = read(fd,buf,1);   /* returns after 1 chars have been input */
-      buf[1]='\0';	
+      
+	  if(res==-1)
+		exit(-1);
+	  buf[1]='\0';	
       collectedString[counter]=buf[0]; 
       
       if (buf[0]=='\0'){ 
@@ -107,6 +56,95 @@ char * readBytes(int fd)
 	
 }
 
+//FUNÇÕES GUIA 2
+char readSupervision(int fd, int counter){
+
+	char set[5]={0x7E,0x03,0x03,0x00,0x7E};
+	char buf[1];    
+	int res=0;
+    res = read(fd,buf,1);   /* returns after 1 chars have been input */
+	
+	if(res==-1){
+	printf("read error\n");
+	return 0x36;
+	}
+	    
+	switch(counter){
+	case 0:
+		if(buf[0]==set[0]){
+			printf("SUCCESS\n");
+			return 0x76;		
+		}
+		else printf("ERROR\n");
+		return 0x36;
+	case 1:
+		if(buf[0]==set[1]){
+
+			printf("SUCCESS\n");
+			return 0x03;		
+		}
+		else printf("ERROR\n");
+		return 0x36;
+	case 2:
+		if(buf[0]==set[2]){
+			printf("SUCCESS\n");
+			return 0x03;		
+		}
+		else printf("ERROR\n");
+		return 0x36;
+	case 3:
+		if(buf[0]==set[3]){
+			printf("SUCCESS\n");
+			return buf[0];		
+		}
+		else printf("ERROR\n");
+		return 0x35;
+	case 4:
+		if(buf[0]==set[4]){
+			printf("SUCCESS\n");
+			return 0X7E;		
+		}
+		else printf("ERROR\n");
+		return 0x36;
+ 	default:
+		return 0x36;
+	}	
+}
+
+void llopen(int fd){
+ char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
+ char readchar[2];
+ int counter = 0;
+
+ while (STOP==FALSE) {       /* loop for input */
+ 
+  readchar[0]=readSupervision(fd,counter);
+  printf("%c \n",readchar[0]);
+  readchar[1]='\0';	
+  counter++;
+
+  if(readchar[0]==0x36){
+  counter=0;
+  }
+   
+  if(readchar[0]==0x35){
+  counter=-1;
+  }
+  
+  if (counter==5){ 
+	 STOP=TRUE;
+  }
+  
+ }
+	printf("Sending UA...\n");
+    writeBytes(fd,ua);
+}
+
+
+
+
+
+
 int main(int argc, char** argv)
 {
     int fd;
@@ -118,7 +156,7 @@ int main(int argc, char** argv)
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
+      exit(-1);
     }
 
 
@@ -165,9 +203,9 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 	llopen(fd);
- 	//writeBytes(fd,readBytes(fd));
+ 	
 
-    pause(2);
+    sleep(2);
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     return 0;

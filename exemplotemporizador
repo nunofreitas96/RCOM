@@ -1,0 +1,33 @@
+#include <signal.h>
+
+int flag_alarm=0, conta_alarm=0, received=0,num=1;
+char buf[10];
+
+void atende_alarme(void){
+	flag_alarm=1; 
+	conta_alarm++;
+	alarm(0);
+	printf("Alarme %d \n", conta_alarm);
+}
+
+void desactiva_alarme(void){
+	alarm(0); 
+	conta_alarme=0; 
+flag_alarm=0;
+}
+
+main() {
+void signal(SIGALRM,atende_alarm);
+while(conta_alarm<4 && !received){
+	//write stuff
+	flag_alarm=0;
+	alarm(3);
+	while(!flag_alarm && !received){
+	//read stuff
+	if(num==0) 
+	received=1;	
+	}
+	if(received)
+	desactiva_alarme();
+}
+}
