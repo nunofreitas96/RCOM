@@ -29,7 +29,7 @@ void atende()                   // atende alarme
 	
 }
 
-char writeSet(int fd)
+void writeSet(int fd)
 {
 	srand(time(NULL));
 	int random = rand()%3+1;
@@ -59,6 +59,7 @@ char writeSet(int fd)
 	
 
 	printf("%d bytes written\n", res);	
+
 }
 
 int readUa(int fd)
@@ -128,45 +129,40 @@ int readUa(int fd)
 	 		STOP=TRUE;
   		}
 	}
-	printf("returning from trying to read\n");
 	return res;
 }
 
 
-char llopen(int fd)
+int llopen(int fd)
 {
-	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
+	
 	int res = 0;
-	while(STOP==FALSE){
-		if(flag)
-		{ 
-			while(conta < 4)
-			{
-			 		
-				alarm(3);
-				flag = 0;
-			}	
-		}
-		writeSet(fd);
-		res = readUa(fd);
+
 	
-		if (res == 0 || res==-1) //fails to read ua
+		while(conta < 4)
 		{
-			printf("n leu");
-			flag = 1;
-			conta=0;
+			writeSet(fd);
+			alarm(3);
+			res = readUa(fd);
+			if (res == 0 || res==-1) //fails to read ua
+			{
+				flag = 0;
+			}
+			else{ 
+			alarm(0);
+			return 0;				
+			}
+			while(!flag && STOP == FALSE)
+			{}
 		}
-	
-	}
+	return -1;
 }
 int main(int argc, char** argv)
 {
 
-	
-    int fd,c, res;
+	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
+    int fd;
     struct termios oldtio,newtio;
-    char buf[255], buf_res[255];
-    int i, sum = 0, speed = 0, len = 0;
     
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
