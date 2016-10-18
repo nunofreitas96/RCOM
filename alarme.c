@@ -21,6 +21,7 @@ while(conta < 4)
 {
    if(flag)
 	{
+		printf("ola\n");
       alarm(3);                 // activa alarme de 3s
       flag=0;
    }

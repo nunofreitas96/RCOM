@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
@@ -18,128 +19,149 @@
 
 volatile int STOP=FALSE;
 
-int flag=1, conta=1;
+int flag=0, conta=1;// contalarme=1;
 
 void atende()                   // atende alarme
 {
 	printf("alarme # %d\n", conta);
 	flag=1;
 	conta++;
+	
 }
 
-char writeSet(int fd,int manhoso)
+char writeSet(int fd)
 {
+	srand(time(NULL));
+	int random = rand()%3+1;
 	int res;	
-	//char set[5] = {0x7E,0x03,0x03,0x00,0x7E};
+	char set[5] = {0x7E,0x03,0x03,0x00,0x7E};
+	char set3[5] = {0x7E,0x03,0x03,0x01,0x7E};
+	switch(random) {
+		case 1:
+		printf("PRINTING RIGHT SET\n");
+		res = write(fd,set,5);
+		break;
+		case 2:
+		printf("PRINTING RIGHT SET\n");
+		res = write(fd,set,5);
+		break;
+		case 3:
+		printf("PRINTING WRONG SET\n");
+		res = write(fd,set3,5);
+		break;
+		default:
+		printf("?????\n");
+		break;
+	}
 	
 	
-	char set[5] = {0x7E,0x03,0x03,0x02,0x7E}; // TA MALE!
-	char set2[5] = {0x7E,0x03,0x03,0x00,0x7E};
-
-	
-	if( manhoso == 0){
-	res = write(fd,set,5);}
-	else{
-	res = write(fd,set2,5);}
-
-	
-	char buf[1];
 
 	printf("%d bytes written\n", res);	
 }
 
-char readUa(int fd)
+int readUa(int fd)
 {
 	char buf[1];
-	char ua[5] = {0x7E,0x03,0x07,0x01,0x7E};
+	char ua[5] = {0x7E,0x03,0x03,0x01,0x7E};
 	int res;
 	int counter = 0;
+	int errorflag =0;
 
-	
-	while(conta < 4 && STOP == FALSE)
+	while (STOP==FALSE && counter < 5) 
 	{
-
-		if(flag)
-		{  		
-			alarm(3); // 3 second alarm
-			flag=0;
-		}
-		
-		while (STOP==FALSE) 
-		{	
-			printf("start raeding \n");
-			res = read(fd,buf,1);
-			printf("%d",res);
-			if(res == 0)
-			{
-				//printf("Nsei");
-				//flag =1;
-				break;
-			}
-			//conta = 0;
+		res = read(fd,buf,1);
+				
 		switch(counter)
 		{
-		case 0:
-			if(buf[0]==ua[0])
-			printf("SUCCESS\n");
-			else printf("ERROR\n");
-			break;
-		case 1:
-			if(buf[0]==ua[1])
-			printf("SUCCESS\n");
-			else printf("ERROR\n");
-			break;
-		case 2:
-			if(buf[0]==ua[2])
-			printf("SUCCESS\n");
-			else printf("ERROR\n");
-			break;
-		case 3:
-			if(buf[0]==ua[3])
-			printf("SUCCESS\n");
-			else printf("ERROR\n");
-			break;
-		case 4:
-			if(buf[0]==ua[4])
-			printf("SUCCESS\n");
-			else printf("ERROR\n");
-			break;
-			
+			case 0:
+				if(buf[0]==ua[0])
+				printf("SUCCESS\n");
+				else
+				{ 
+				printf("ERROR\n");
+				errorflag=-1;
+				}
+				break;
+			case 1:
+				if(buf[0]==ua[1])
+				printf("SUCCESS\n");
+				else
+				{ 
+				printf("ERROR\n");
+				errorflag=-1;
+				}
+				break;
+			case 2:
+				if(buf[0]==ua[2])
+				printf("SUCCESS\n");
+				else
+				{ 
+				printf("ERROR\n");
+				errorflag=-1;
+				}
+				break;
+			case 3:
+				if(buf[0]==ua[3])
+				printf("SUCCESS\n");
+				else
+				{ 
+				printf("ERROR\n");
+				errorflag=-1;
+				}
+				break;
+			case 4:
+				if(buf[0]==ua[4])
+				printf("SUCCESS\n");
+				else
+				{ 
+				printf("ERROR\n");
+				errorflag=-1;
+				}
+				break;
 		};  		
-	
   		counter++;
-  		buf[1]='\0';	
-  		if (counter==5)
-		{ 
-			
-	 		STOP=TRUE;
 
+  		if (counter==5 && errorflag ==0)
+		{ 
+	 		STOP=TRUE;
   		}
 	}
-		
-		
-	}
-
-	if(conta >=4)
-		{			
-			printf("Reception Error \n");	
-			writeSet(fd,1);
-		}
-
-	
+	printf("returning from trying to read\n");
+	return res;
 }
 
 
 char llopen(int fd)
 {
-	writeSet(fd,0);
-	readUa(fd);
+	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
+	int res = 0;
+	while(conta < 4 && STOP==FALSE)
+	{
+		if(flag)
+		{  		
+			printf("CONTA IS %d\n",conta);
+			sleep(3);
+			//alarm(3);
+			flag = 0;
+		
+			
+		}
+		writeSet(fd);
+		res = readUa(fd);
+		if (res == 0 || res==-1) //fails to read ua
+		{
+			printf("n leu");
+			//flag =0;
+			flag = 1;
+		}
+		conta++;
+	}
 	
 }
 int main(int argc, char** argv)
 {
 
-	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
+	
     int fd,c, res;
     struct termios oldtio,newtio;
     char buf[255], buf_res[255];
