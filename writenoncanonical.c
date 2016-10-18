@@ -77,49 +77,24 @@ int readUa(int fd)
 		switch(counter)
 		{
 			case 0:
-				if(buf[0]==ua[0])
-				printf("SUCCESS\n");
-				else
-				{ 
-					printf("ERROR\n");
+				if(buf[0]!=ua[0])
 					errorflag=-1;
-				}
 				break;
 			case 1:
-				if(buf[0]==ua[1])
-				printf("SUCCESS\n");
-				else
-				{ 
-					printf("ERROR\n");
+				if(buf[0]!=ua[1])
 					errorflag=-1;
-				}
 				break;
 			case 2:
-				if(buf[0]==ua[2])
-				printf("SUCCESS\n");
-				else
-				{ 
-					printf("ERROR\n");
+				if(buf[0]!=ua[2])
 					errorflag=-1;
-				}
 				break;
 			case 3:
-				if(buf[0]==ua[3])
-				printf("SUCCESS\n");
-				else
-				{ 
-					printf("ERROR\n");
+				if(buf[0]!=ua[3])
 					errorflag=-1;
-				}
 				break;
 			case 4:
-				if(buf[0]==ua[4])
-				printf("SUCCESS\n");
-				else
-				{ 
-					printf("ERROR\n");
+				if(buf[0]!=ua[4])
 					errorflag=-1;
-				}
 				break;
 		};  		
   		counter++;
@@ -135,26 +110,25 @@ int readUa(int fd)
 
 int llopen(int fd)
 {
-	
-	int res = 0;
-
-	
+	 
 		while(conta < 4)
 		{
 			writeSet(fd);
 			alarm(3);
-			res = readUa(fd);
-			if (res == 0 || res==-1) //fails to read ua
-			{
-				flag = 0;
-			}
-			else{ 
-			alarm(0);
-			return 0;				
-			}
+			
+			
+		
 			while(!flag && STOP == FALSE)
-			{}
-		}
+			{
+				readUa(fd);	
+			}
+				
+			if(STOP==TRUE){
+				alarm(0);
+				return 0;				
+			}		
+			else flag=0;
+	  }
 	return -1;
 }
 int main(int argc, char** argv)
