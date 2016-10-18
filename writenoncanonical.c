@@ -36,7 +36,9 @@ char writeSet(int fd)
 	int res;	
 	char set[5] = {0x7E,0x03,0x03,0x00,0x7E};
 	char set3[5] = {0x7E,0x03,0x03,0x01,0x7E};
-	switch(random) {
+
+	switch(random) 
+	{
 		case 1:
 		printf("PRINTING RIGHT SET\n");
 		res = write(fd,set,5);
@@ -78,8 +80,8 @@ int readUa(int fd)
 				printf("SUCCESS\n");
 				else
 				{ 
-				printf("ERROR\n");
-				errorflag=-1;
+					printf("ERROR\n");
+					errorflag=-1;
 				}
 				break;
 			case 1:
@@ -87,8 +89,8 @@ int readUa(int fd)
 				printf("SUCCESS\n");
 				else
 				{ 
-				printf("ERROR\n");
-				errorflag=-1;
+					printf("ERROR\n");
+					errorflag=-1;
 				}
 				break;
 			case 2:
@@ -96,8 +98,8 @@ int readUa(int fd)
 				printf("SUCCESS\n");
 				else
 				{ 
-				printf("ERROR\n");
-				errorflag=-1;
+					printf("ERROR\n");
+					errorflag=-1;
 				}
 				break;
 			case 3:
@@ -105,8 +107,8 @@ int readUa(int fd)
 				printf("SUCCESS\n");
 				else
 				{ 
-				printf("ERROR\n");
-				errorflag=-1;
+					printf("ERROR\n");
+					errorflag=-1;
 				}
 				break;
 			case 4:
@@ -114,8 +116,8 @@ int readUa(int fd)
 				printf("SUCCESS\n");
 				else
 				{ 
-				printf("ERROR\n");
-				errorflag=-1;
+					printf("ERROR\n");
+					errorflag=-1;
 				}
 				break;
 		};  		
@@ -135,28 +137,27 @@ char llopen(int fd)
 {
 	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
 	int res = 0;
-	while(conta < 4 && STOP==FALSE)
-	{
+	while(STOP==FALSE){
 		if(flag)
-		{  		
-			printf("CONTA IS %d\n",conta);
-			sleep(3);
-			//alarm(3);
-			flag = 0;
-		
-			
+		{ 
+			while(conta < 4)
+			{
+			 		
+				alarm(3);
+				flag = 0;
+			}	
 		}
 		writeSet(fd);
 		res = readUa(fd);
+	
 		if (res == 0 || res==-1) //fails to read ua
 		{
 			printf("n leu");
-			//flag =0;
 			flag = 1;
+			conta=0;
 		}
-		conta++;
-	}
 	
+	}
 }
 int main(int argc, char** argv)
 {
