@@ -107,30 +107,39 @@ int readUa(int fd)
 	return res;
 }
 
+int llwrite(int fd)
+{
+
+	return 0;
+}
+
+int llread(int fd)
+{
+	return 0;	
+}
+
 
 int llopen(int fd)
 {
-	 
-		while(conta < 4)
-		{
-			writeSet(fd);
-			alarm(3);
-			
-			
+	while(conta < 4)
+	{
+		writeSet(fd);
+		alarm(3);	
 		
-			while(!flag && STOP == FALSE)
-			{
-				readUa(fd);	
-			}
+		while(!flag && STOP == FALSE)
+		{	readUa(fd);	}
 				
-			if(STOP==TRUE){
-				alarm(0);
-				return 0;				
-			}		
-			else flag=0;
-	  }
+		if(STOP==TRUE)
+		{
+			alarm(0);
+			return 0;				
+		}		
+		else 
+			flag=0;
+	 }
 	return -1;
 }
+
 int main(int argc, char** argv)
 {
 
