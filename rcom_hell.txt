@@ -1,0 +1,21 @@
+1o trama de supervisao - set/ua
+
+Recebe ua...
+
+infos do ficheiro - colocar a trama START numa trama I com informaçao ficheiro
+	0.5 Get tamanho e nome ficheiro ! (fseek)
+	0.6 Construir TLV baseado na info de cima.
+	1. construir pacote "start" 0(T1) | lengthV(L1) | (V)f_size | 1(T2) | length V2(N2) | nome(V2)
+	1.5. construir bcc2 - usado mais tarde na trama start
+	2. stuff de start
+	/*
+		
+		se encontrar-mos 0x7E -> 0x7d 0x5e (xor entre 0x7E^0x20)
+		se encontrar-mos 0x7D -> 0x7d 0x5d (xor entre 0x7D^0x20)
+ 	*/
+	3. colocar stuffed start aqui dentro 0x7E(F) | 0x03(A) | 0x00(C) | A^C(BCC) | 2(hex) | "start" | BCC2(^=dados(ou tlv)) | F - TLV
+	3.5 Enviar .
+	4. Receber RR do receptor.
+	5. proxima trama C = 0x40 (alternando a cada iteraçao, envio de dados)
+
+
