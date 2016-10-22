@@ -17,6 +17,8 @@
 #define FALSE 0
 #define TRUE 1
 
+FILE *fp;
+
 volatile int STOP=FALSE;
 
 int flag=0, conta=1;// contalarme=1;
@@ -109,6 +111,24 @@ int readUa(int fd)
 
 int llwrite(int fd)
 {
+	//Retrieving file's information
+	int fsize = 0;
+	fseek(fp,0,SEEK_END) + 1;
+	fsize = ftell(fp);
+	lseek(fp,0,SEEK_SET);
+	
+	char *startBuf = malloc(fsize+5+sizeof("pinguim.gif"));
+
+	//starting to fill START packet
+	startBuf[0] = 0x02;
+	startBuf[1] = 0x00;
+	startBuf[2] = 0x00;
+	startBuf[3] = 0x04;
+	startBuf[4] = fsize;
+	startBuf[5] = 0x01;
+	startBuf[6] = sizeof("pinguim.gif");
+	startBuf[7] = "pinguim.gif";
+
 
 	return 0;
 }
@@ -154,7 +174,7 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-
+	fp = fopen("pinguim.gif","r");
   /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
