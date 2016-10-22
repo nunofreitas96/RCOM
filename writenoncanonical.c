@@ -109,27 +109,55 @@ int readUa(int fd)
 	return res;
 }
 
-int llwrite(int fd)
+char* stuffingStartPacket(char *startBuf)
+{
+	int i = 0;
+	for(; i < strlen(startBuf)-1;i++)
+	{
+		//if (startBuf[i] == 
+	}
+}
+
+char* buildStartPacket()
 {
 	//Retrieving file's information
-	int fsize = 0;
+	int fsize;
 	fseek(fp,0,SEEK_END) + 1;
 	fsize = ftell(fp);
 	lseek(fp,0,SEEK_SET);
-	
-	char *startBuf = malloc(fsize+5+sizeof("pinguim.gif"));
+
+	char *fileName = "pinguim.gif";
+
+	//printf("File Name: %s %d", fileName,strlen(fileName));
 
 	//starting to fill START packet
+	char *startBuf = malloc(fsize+7+strlen("pinguim.gif"));
 	startBuf[0] = 0x02;
 	startBuf[1] = 0x00;
 	startBuf[2] = 0x00;
 	startBuf[3] = 0x04;
-	startBuf[4] = fsize;
-	startBuf[5] = 0x01;
-	startBuf[6] = sizeof("pinguim.gif");
-	startBuf[7] = "pinguim.gif";
+	int pos = 4;
+	for (;pos < fsize; pos++)
+	{
+		startBuf[pos] = fsize / 256;
+	}	
+	startBuf[pos+1] = 0x01;
+	startBuf[pos+2] = strlen(fileName);
+	startBuf[pos+3] = fileName;
 
+	int i = 57000;
+	if (TRUE)
+	{
+		printf(" %lu 0x%X\n",strlen(startBuf),startBuf[i]);
+		i++;
+	}
 
+	return startBuf;
+}
+
+int llwrite(int fd)
+{
+	
 	return 0;
 }
 
@@ -217,8 +245,10 @@ int main(int argc, char** argv)
     }
 
     //printf("Message to send: ");
-	
-	llopen(fd);
+	buildStartPacket();
+	llwrite(fd);	
+	//llopen(fd);
+
 
 /*
 	gets(buf);
