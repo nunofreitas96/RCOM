@@ -146,11 +146,7 @@ char* buildStartPacket()
 	startBuf[pos+3] = fileName;
 
 	int i = 57000;
-	if (TRUE)
-	{
-		printf(" %lu 0x%X\n",strlen(startBuf),startBuf[i]);
-		i++;
-	}
+	printf(" %lu 0x%X\n",strlen(startBuf),startBuf[i]);
 
 	return startBuf;
 }
