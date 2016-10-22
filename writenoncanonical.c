@@ -118,7 +118,7 @@ char* stuffingStartPacket(char *startBuf)
 	}
 }
 
-char* buildStartPacket()
+char * buildStartPacket()
 {
 	//Retrieving file's information
 	int fsize;
@@ -136,17 +136,23 @@ char* buildStartPacket()
 	startBuf[1] = 0x00;
 	startBuf[2] = 0x00;
 	startBuf[3] = 0x04;
-	int pos = 4;
-	for (;pos < fsize; pos++)
-	{
-		startBuf[pos] = fsize / 256;
-	}	
-	startBuf[pos+1] = 0x01;
-	startBuf[pos+2] = strlen(fileName);
-	startBuf[pos+3] = fileName;
+	startBuf[4] = fsize%256;
+	startBuf[5] = (fsize%256)%256;
+	startBuf[6] = ((fsize%256)%256)%256;
+	startBuf[7] = (((fsize%256)%256)%256)%256;
+	startBuf[8] = 0x01;
+	startBuf[9] = strlen(fileName);
 
-	int i = 57000;
-	printf(" %lu 0x%X\n",strlen(startBuf),startBuf[i]);
+	int pos = 10;
+	for(;pos < strlen(fileName)+10;pos++)
+	{
+		startBuf[pos] = fileName[pos-10];
+	}
+	int i = 0;
+	for(;i < 21;i++)
+	{
+		printf("%X\n",startBuf[i]);
+	}
 
 	return startBuf;
 }
@@ -242,7 +248,7 @@ int main(int argc, char** argv)
 
     //printf("Message to send: ");
 	buildStartPacket();
-	llwrite(fd);	
+	//llwrite(fd);	
 	//llopen(fd);
 
 
