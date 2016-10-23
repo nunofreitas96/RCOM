@@ -143,17 +143,6 @@ char * buildStartPacket()
 	startBuf[8] = 0x01;
 	startBuf[9] = strlen(fileName);
 
-	int pos = 10;
-	for(;pos < strlen(fileName)+10;pos++)
-	{
-		startBuf[pos] = fileName[pos-10];
-	}
-	int i = 0;
-	for(;i < 21;i++)
-	{
-		printf("%X\n",startBuf[i]);
-	}
-
 	return startBuf;
 }
 
