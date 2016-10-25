@@ -18,6 +18,12 @@
 #define FALSE 0
 #define TRUE 1
 
+#define FLAG 0x7E
+#define A 0x03
+#define C1 0x00
+#define C2 0x40
+#define BCC1
+
 FILE *fp;
 
 volatile int STOP=FALSE;
@@ -110,16 +116,7 @@ int readUa(int fd)
 	return res;
 }
 
-char* stuffingStartPacket(char *startBuf)
-{
-	int i = 0;
-	for(; i < strlen(startBuf)-1;i++)
-	{
-		//if (startBuf[i] == 
-	}
-}
-
-char * buildStartPacket()
+char *buildStartPacket()
 {
 	int fsize, aux1, recoveredFileSize=0, i=0, j=0;
 	char *fileName = "pinguim.gif";
@@ -143,14 +140,54 @@ char * buildStartPacket()
 			sz[j]=0;
 	}
 
-	for(i=0;i<3;i++)
-		printf("%X ; ",sz[i]);
-
 	fclose(fp);
+	
+	int startBufSize = 9+strlen(fileName);
 
-	char *startBuf = malloc(fsize+7+strlen("pinguim.gif"));
+	char *startBuf = (char *)malloc(startBufSize);
+	startBuf[0] = 0x02;
+	startBuf[1] = 0x00;
+	startBuf[2] = 0x04;
+	startBuf[3] = sz[0];
+	startBuf[4] = sz[1];
+	startBuf[5] = sz[2];
+	startBuf[6] = sz[3];
+	startBuf[7] = 0x01;
+	startBuf[8] = strlen(fileName);
+	startBuf[9] = 'p';
+	startBuf[10] = 'i';
+	startBuf[11] = 'n';
+	startBuf[12] = 'g';
+	startBuf[13] = 'u';
+	startBuf[14] = 'i';
+	startBuf[15] = 'm';
+	startBuf[16] = '.';
+	startBuf[17] = 'g';
+	startBuf[18] = 'i';
+	startBuf[19] = 'f';
 
-	return startBuf;
+	//fazer stuffing	x
+	//colocar numa trama I	x
+	//enviar		x
+	
+	char *stuffingStart = (char *)malloc(startBufSize+5);
+	i = 0;
+	for (; i < startBufSize;i++)
+	{
+		stuffingStart[i] = startBuf[i];
+	}
+	stuffingStart[startBufSize+1] = A^C1; //FALTA VERIFICAR ISTO
+	printf("stuffingStart[] = 0x%X\n",stuffingStart[startBufSize+1]);
+
+	i = 0;
+	/*for (; i < startBufSize+1;i++)
+	{
+		stuffingStart[i] = startBuf[i];
+		printf("stuffingStart[%d] = 0x%X\n",i,stuffingStart[i]);
+	}*/
+
+
+	return 0;
 }
 
 int llwrite(int fd)
