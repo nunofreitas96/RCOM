@@ -14,7 +14,10 @@
 #define FALSE 0
 #define TRUE 1
 
+
+int status = TRUE;
 volatile int STOP=FALSE;
+char rr[5];
 
 //Funções GUIA1
 void writeBytes(int fd, char* message)
@@ -62,7 +65,7 @@ char readSupervision(int fd, int counter){
 	char set[5]={0x7E,0x03,0x03,0x00,0x7E};
 	char buf[1];    
 	int res=0;
-    res = read(fd,buf,1);   /* returns after 1 chars have been input */
+    	res = read(fd,buf,1);   /* returns after 1 chars have been input */
 	
 	if(res==-1){
 	printf("read error\n");
@@ -79,8 +82,6 @@ char readSupervision(int fd, int counter){
 		return 0x36;
 	case 1:
 		if(buf[0]==set[1]){
-
-			printf("SUCCESS\n");
 			return 0x03;		
 		}
 		else printf("ERROR\n");
@@ -110,6 +111,121 @@ char readSupervision(int fd, int counter){
 		return 0x36;
 	}	
 }
+
+
+char destuffPack(int fd, buf){
+	//Buffer whose content will be destuffed
+	//TODO make this more accessible to other functions	
+	char dbuf[500];
+
+	// counter for finding all bytes to destuff, starts on 4 because from 0 to 3 is the header
+	//j is a counter to put bytes on dbuf;
+	int i =4;
+	int j =0;
+	
+	//Finding content that needs destuffing
+	while(TRUE){
+		if(buf[i] == 0x7E){
+			
+			break;
+		}
+		//TODO verificar se eu percebi o destuffing corretamente
+		if(buf[i] == 0x7d){
+			if(buf[i+1] == 0x5e){
+				dbuf[j] = 0x7E;
+				i = i+2;
+				
+			}
+			else if(buf[i+1] == 0x5f){
+				dbuf[j] = 0x7D;
+				i = i+2;			
+			}
+			else{
+				//TODO mudar antes de entrega a mensagem de erro
+				printf("esse stuffing ta mal, oh boi");		
+				return 0x36;	
+			}
+		}
+		else{
+		dbuf[j] = buf[i];
+		i++;
+		} 
+
+	j++:
+	 
+
+	}
+	
+
+	return 0x36;
+	
+
+}
+
+
+char readInfPack(int fd){
+
+	//TODO Verificar se está tudo correto
+
+	//Verifying that the header of the package is correct
+	char buf[4];
+	char c1alt;
+	int res =0;
+	res(read, fd, buf,4);
+	
+	
+	if(res==-1){
+		printf("read error\n");
+		return 0x36;
+	}
+
+	//Verifying starting flag
+	if(buf[0] != 0x7E){
+		printf("first byte isn't flag error \n");
+		return 0x36;
+	}
+
+	//Verifying A
+	if(buf[1] != 0x03){
+		printf("read error in (A) \n");
+		return 0x36;
+	}
+
+	//Verifying C1
+	if(buf[2] != 0x00 && buf[2] != 0x40){
+		printf("read error in (C)");
+		return 0x36;
+	}
+	//Verifying BCC1
+	if(buf[1]^buf[2] != buf[3]){
+		printf("A^C is not equal to BCC1 error");
+		return 0x36;
+
+	}
+	
+	//Alternating C1
+	if(buf[2] == 0x00){
+		c1alt = 0x40;
+	}
+	else if(buf[2] == 0x40){
+		c1alt = 0x00;
+	}
+	//criating header of start package to send
+	rr = {0x7E,0x03,c1alt,0x03^c1alt);
+
+	return 0x36;
+}
+
+char sendRR(fd){
+
+//TODO funcao para enviar RR
+
+
+
+}
+
+
+
 
 void llopen(int fd){
  char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
