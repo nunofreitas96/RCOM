@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <math.h>
 
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
@@ -21,9 +22,9 @@ FILE *fp;
 
 volatile int STOP=FALSE;
 
-int flag=0, conta=1;// contalarme=1;
+int flag=0, conta=1;
 
-void atende()                   // atende alarme
+void atende()
 {
 	printf("alarme # %d\n", conta);
 	flag=1;
@@ -75,36 +76,36 @@ int readUa(int fd)
 	while (STOP==FALSE && counter < 5) 
 	{
 		res = read(fd,buf,1);
-				
+
 		switch(counter)
 		{
 			case 0:
-				if(buf[0]!=ua[0])
-					errorflag=-1;
-				break;
+			if(buf[0]!=ua[0])
+				errorflag=-1;
+			break;
 			case 1:
-				if(buf[0]!=ua[1])
-					errorflag=-1;
-				break;
+			if(buf[0]!=ua[1])
+				errorflag=-1;
+			break;
 			case 2:
-				if(buf[0]!=ua[2])
-					errorflag=-1;
-				break;
+			if(buf[0]!=ua[2])
+				errorflag=-1;
+			break;
 			case 3:
-				if(buf[0]!=ua[3])
-					errorflag=-1;
-				break;
+			if(buf[0]!=ua[3])
+				errorflag=-1;
+			break;
 			case 4:
-				if(buf[0]!=ua[4])
-					errorflag=-1;
-				break;
+			if(buf[0]!=ua[4])
+				errorflag=-1;
+			break;
 		};  		
-  		counter++;
+		counter++;
 
-  		if (counter==5 && errorflag ==0)
+		if (counter==5 && errorflag ==0)
 		{ 
-	 		STOP=TRUE;
-  		}
+			STOP=TRUE;
+		}
 	}
 	return res;
 }
@@ -120,17 +121,35 @@ char* stuffingStartPacket(char *startBuf)
 
 char * buildStartPacket()
 {
-	//Retrieving file's information
-	int fsize;
-	fseek(fp,0,SEEK_END) + 1;
+	int fsize, aux1, recoveredFileSize=0, i=0, j=0;
+	char sz[4]={'0','0','0','0'};
+	fseek(f1,0,SEEK_END);
 	fsize = ftell(fp);
-	lseek(fp,0,SEEK_SET);
+	fseek(f1,0,SEEK_SET);
+	aux1 = fsize;
+
+	while(aux1>0xFF)
+	{
+		aux1=fsize/pow(255,i+1);
+		sz[i]=fsize/pow(255,i)-aux1*255;
+		i++;
+	}
+
+	if(i<3)
+	{
+		sz[i]=aux1;
+		for(j=i+1;j<3;j++) 
+			sz[j]=0;
+	}
+
+	for(i=0;i<3;i++)
+		printf("%X ; ",sz[i]);
+
+	fclose(fp);
 
 	char *fileName = "pinguim.gif";
 
-	//printf("File Name: %s %d", fileName,strlen(fileName));
 
-	//starting to fill START packet
 	char *startBuf = malloc(fsize+7+strlen("pinguim.gif"));
 	startBuf[0] = 0x02;
 	startBuf[1] = 0x00;
@@ -166,8 +185,8 @@ int llopen(int fd)
 		alarm(3);	
 		
 		while(!flag && STOP == FALSE)
-		{	readUa(fd);	}
-				
+			{	readUa(fd);	}
+
 		if(STOP==TRUE)
 		{
 			alarm(0);
@@ -175,7 +194,7 @@ int llopen(int fd)
 		}		
 		else 
 			flag=0;
-	 }
+	}
 	return -1;
 }
 
@@ -183,38 +202,38 @@ int main(int argc, char** argv)
 {
 
 	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
-    int fd;
-    struct termios oldtio,newtio;
-    
-    if ( (argc < 2) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
-    }
+	int fd;
+	struct termios oldtio,newtio;
 
-	fp = fopen("pinguim.gif","r");
+	if ( (argc < 2) || 
+		((strcmp("/dev/ttyS0", argv[1])!=0) && 
+			(strcmp("/dev/ttyS1", argv[1])!=0) )) {
+		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+	exit(1);
+}
+
+fp = fopen("pinguim.gif","r");
   /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
   */
 
 
-    fd = open(argv[1], O_RDWR | O_NOCTTY );
-    if (fd <0) {perror(argv[1]); exit(-1); }
+fd = open(argv[1], O_RDWR | O_NOCTTY );
+if (fd <0) {perror(argv[1]); exit(-1); }
 
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
-      perror("tcgetattr");
-      exit(-1);
-    }
+perror("tcgetattr");
+exit(-1);
+}
 
-    bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
+bzero(&newtio, sizeof(newtio));
+newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+newtio.c_iflag = IGNPAR;
+newtio.c_oflag = 0;
 
     /* set input mode (non-canonical, no echo,...) */
-    newtio.c_lflag = 0;
+newtio.c_lflag = 0;
 
     newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
     newtio.c_cc[VMIN]     = 0;   /* blocking read until 1 chars received */
@@ -227,16 +246,16 @@ int main(int argc, char** argv)
   */
 
 
-	
-    tcflush(fd, TCIOFLUSH);
 
-    if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
+tcflush(fd, TCIOFLUSH);
+
+if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
+	perror("tcsetattr");
+	exit(-1);
+}
 
     //printf("Message to send: ");
-	buildStartPacket();
+buildStartPacket();
 	//llwrite(fd);	
 	//llopen(fd);
 
@@ -266,14 +285,14 @@ int main(int argc, char** argv)
     o indicado no guião 
   */
 
-    if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
+if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
+	perror("tcsetattr");
+	exit(-1);
+}
 
-    close(fd);
-    return 0;
-	
+close(fd);
+return 0;
+
 }
 
 
