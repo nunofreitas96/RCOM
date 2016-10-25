@@ -124,15 +124,15 @@ char * buildStartPacket()
 	int fsize, aux1, recoveredFileSize=0, i=0, j=0;
 	char *fileName = "pinguim.gif";
 	char sz[4]={'0','0','0','0'};
-	fseek(f1,0,SEEK_END);
+	fseek(fp,0,SEEK_END);
 	fsize = ftell(fp);
-	fseek(f1,0,SEEK_SET);
+	fseek(fp,0,SEEK_SET);
 	aux1 = fsize;
 
 	while(aux1>0xFF)
 	{
-		aux1=fsize/pow(255,i+1);
-		sz[i]=fsize/pow(255,i)-aux1*255;
+		aux1=fsize/(pow(255.0,i+1));
+		sz[i]=fsize/(pow(255.0,i)-aux1*255);
 		i++;
 	}
 
@@ -148,7 +148,7 @@ char * buildStartPacket()
 
 	fclose(fp);
 
-	//char *startBuf = malloc(fsize+7+strlen("pinguim.gif"));
+	char *startBuf = malloc(fsize+7+strlen("pinguim.gif"));
 
 	return startBuf;
 }
