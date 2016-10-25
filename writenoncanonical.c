@@ -18,12 +18,6 @@
 #define FALSE 0
 #define TRUE 1
 
-#define FLAG 0x7E
-#define A 0x03
-#define C1 0x00
-#define C2 0x40
-#define BCC1
-
 FILE *fp;
 
 volatile int STOP=FALSE;
@@ -166,25 +160,23 @@ char *buildStartPacket()
 	startBuf[18] = 'i';
 	startBuf[19] = 'f';
 
+	//TODO:
 	//fazer stuffing	x
 	//colocar numa trama I	x
-	//enviar		x
-	
-	char *stuffingStart = (char *)malloc(startBufSize+5);
-	i = 0;
-	for (; i < startBufSize;i++)
-	{
-		stuffingStart[i] = startBuf[i];
-	}
-	stuffingStart[startBufSize+1] = A^C1; //FALTA VERIFICAR ISTO
-	printf("stuffingStart[] = 0x%X\n",stuffingStart[startBufSize+1]);
 
-	i = 0;
-	/*for (; i < startBufSize+1;i++)
-	{
-		stuffingStart[i] = startBuf[i];
-		printf("stuffingStart[%d] = 0x%X\n",i,stuffingStart[i]);
-	}*/
+	unsigned char FLAG = 0x7E;
+	unsigned char A = 0x03;
+	unsigned char C1 = 0x00;
+	unsigned char C2 = 0x40;
+	unsigned char BCC1 = A^C1;
+	
+	for (i = 0; i < startBufSize+)
+	char dataPackage[255];
+
+	
+
+
+	stuffingStart[startBufSize+1] = BCC1;
 
 
 	return 0;
