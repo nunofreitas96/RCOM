@@ -122,6 +122,7 @@ char* stuffingStartPacket(char *startBuf)
 char * buildStartPacket()
 {
 	int fsize, aux1, recoveredFileSize=0, i=0, j=0;
+	char *fileName = "pinguim.gif";
 	char sz[4]={'0','0','0','0'};
 	fseek(f1,0,SEEK_END);
 	fsize = ftell(fp);
@@ -147,20 +148,7 @@ char * buildStartPacket()
 
 	fclose(fp);
 
-	char *fileName = "pinguim.gif";
-
-
-	char *startBuf = malloc(fsize+7+strlen("pinguim.gif"));
-	startBuf[0] = 0x02;
-	startBuf[1] = 0x00;
-	startBuf[2] = 0x00;
-	startBuf[3] = 0x04;
-	startBuf[4] = fsize%256;
-	startBuf[5] = (fsize%256)%256;
-	startBuf[6] = ((fsize%256)%256)%256;
-	startBuf[7] = (((fsize%256)%256)%256)%256;
-	startBuf[8] = 0x01;
-	startBuf[9] = strlen(fileName);
+	//char *startBuf = malloc(fsize+7+strlen("pinguim.gif"));
 
 	return startBuf;
 }
@@ -210,13 +198,13 @@ int main(int argc, char** argv)
 			(strcmp("/dev/ttyS1", argv[1])!=0) )) {
 		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
 	exit(1);
-}
+	}
 
-fp = fopen("pinguim.gif","r");
-  /*
-    Open serial port device for reading and writing and not as controlling tty
-    because we don't want to get killed if linenoise sends CTRL-C.
-  */
+	fp = fopen("pinguim.gif","r");
+	  /*
+	    Open serial port device for reading and writing and not as controlling tty
+	    because we don't want to get killed if linenoise sends CTRL-C.
+	  */
 
 
 fd = open(argv[1], O_RDWR | O_NOCTTY );
