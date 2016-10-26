@@ -18,6 +18,7 @@
 #define FALSE 0
 #define TRUE 1
 
+int c_flag = 0; //criei esta variavel para verificar se C é 0x00 ou 0x40
 FILE *fp;
 
 volatile int STOP=FALSE;
@@ -110,6 +111,33 @@ int readUa(int fd)
 	return res;
 }
 
+
+int sendkRR(int fd)
+{
+	char FLAG=0x7E;
+	char A=0x03;
+	char C;
+	char BCC1;
+	int res;
+	
+	if (c_flag == 1)
+		C = 0x00;
+	else
+		C = 0x40;
+
+	BCC1 = A^C;
+
+	char rr[5];
+	rr[0] = FLAG;
+	rr[1] = A;
+	rr[2] = C;
+	rr[3] = BCC1;
+	rr[4] = FLAG;
+
+	res=write(fd, rr, strlen(rr));
+	return res;
+}
+
 char *buildStartPacket()
 {
 	int fsize, aux1, recoveredFileSize=0, i=0, j=0;
@@ -119,6 +147,12 @@ char *buildStartPacket()
 	fsize = ftell(fp);
 	fseek(fp,0,SEEK_SET);
 	aux1 = fsize;
+
+	char FLAG = 0x7E;
+	char A = 0x03;
+	char C1 = 0x00;
+	char BCC1 = A^C1;
+	char BCC2;
 
 	while(aux1>0xFF)
 	{
@@ -160,36 +194,33 @@ char *buildStartPacket()
 	startBuf[18] = 'i';
 	startBuf[19] = 'f';
 
-	//TODO:
-	//fazer stuffing	x
-	//colocar numa trama I	x
-
-	unsigned char FLAG = 0x7E;
-	unsigned char A = 0x03;
-	unsigned char C1 = 0x00;
-	unsigned char C2 = 0x40;
-	unsigned char BCC1 = A^C1;
-	unsigned char BCC2;
-
 	//COMPUTE FINAL SIZE OF DATA ARRAY
 	int sizeFinal = startBufSize+6;
 	for (i = 0; i < startBufSize;i++)
 	{
 		if (startBuf[i] == 0x7E || startBuf[i] == 0x7D)
+		{
 			sizeFinal++;
+		}
 	}
 
 	//COMPUTING BCC2
 	BCC2 = startBuf[0] ^ startBuf[1];
 	for (i = 2; i < startBufSize;i++)
 	{
-		BCC2 ^= startBuf[2];
+		BCC2 ^= startBuf[i];
 	}
 
 	//STUFFING OF DATA PACKAGE
 	char dataPackage[sizeFinal];
-	j = 1;
-	for (i = 0; i < sizeFinal;i++)
+	dataPackage[0] = FLAG;
+	dataPackage[1] = A;
+	dataPackage[2] = C1;
+	dataPackage[3] = BCC1;
+
+	//BUILDING DATA PACKAGE AND INSERTING IN "I" PACKET
+	j = 5;
+	for (i = 4; i < sizeFinal;i++)
 	{
 		if (startBuf[i] == 0x7E)
 		{
@@ -201,9 +232,14 @@ char *buildStartPacket()
 			dataPackage[i] = 0x7D;
 			dataPackage[j] = 0x5D;
 		}
+		else
+			dataPackage[i] = startBuf[i];
+
 		j++;
 	}
-	dataPackage[sizeFinal-1] = BCC2;
+	dataPackage[sizeFinal-2] = BCC2;
+	dataPackage[sizeFinal-1] = FLAG;
+
 	return 0;
 }
 
@@ -252,9 +288,9 @@ int main(int argc, char** argv)
 			(strcmp("/dev/ttyS1", argv[1])!=0) )) {
 		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
 	exit(1);
-	}
+}
 
-	fp = fopen("pinguim.gif","r");
+fp = fopen("pinguim.gif","r");
 	  /*
 	    Open serial port device for reading and writing and not as controlling tty
 	    because we don't want to get killed if linenoise sends CTRL-C.

@@ -119,7 +119,8 @@ char readSupervision(int fd, int counter){
 }
 
 
-void llopen(int fd, int type){
+void llopen(int fd, int type)
+{
  char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
  char readchar[2];
  int counter = 0;
@@ -268,8 +269,6 @@ char* readInfPackHeader(int fd, char* buf){
 	//Verifying that the header of the package is correct
 	
 	char c1alt;
-
-	
 
 
 	//Verifying starting flag
