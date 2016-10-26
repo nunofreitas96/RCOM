@@ -169,16 +169,41 @@ char *buildStartPacket()
 	unsigned char C1 = 0x00;
 	unsigned char C2 = 0x40;
 	unsigned char BCC1 = A^C1;
-	
-	for (i = 0; i < startBufSize+)
-	char dataPackage[255];
+	unsigned char BCC2;
 
-	
+	//COMPUTE FINAL SIZE OF DATA ARRAY
+	int sizeFinal = startBufSize+6;
+	for (i = 0; i < startBufSize;i++)
+	{
+		if (startBuf[i] == 0x7E || startBuf[i] == 0x7D)
+			sizeFinal++;
+	}
 
+	//COMPUTING BCC2
+	BCC2 = startBuf[0] ^ startBuf[1];
+	for (i = 2; i < startBufSize;i++)
+	{
+		BCC2 ^= startBuf[2];
+	}
 
-	stuffingStart[startBufSize+1] = BCC1;
-
-
+	//STUFFING OF DATA PACKAGE
+	char dataPackage[sizeFinal];
+	j = 1;
+	for (i = 0; i < sizeFinal;i++)
+	{
+		if (startBuf[i] == 0x7E)
+		{
+			dataPackage[i] = 0x7D;
+			dataPackage[j] = 0x5E;
+		}
+		else if (startBuf[i] == 0x7D)
+		{
+			dataPackage[i] = 0x7D;
+			dataPackage[j] = 0x5D;
+		}
+		j++;
+	}
+	dataPackage[sizeFinal-1] = BCC2;
 	return 0;
 }
 
