@@ -12,7 +12,6 @@
 #include <time.h>
 #include <math.h>
 
-
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -27,7 +26,7 @@ typedef struct
 	char *fileInfo;
 } filePacket;
 
-int c_flag = 0; //criei esta variavel para verificar se C ï¿½ 0x00 ou 0x40
+int c_flag = 0; //criei esta variavel para verificar se C é 0x00 ou 0x40
 FILE *fp;
 
 volatile int STOP=FALSE;
@@ -39,18 +38,18 @@ void atende()
 	printf("alarme # %d\n", conta);
 	flag=1;
 	conta++;
-
+	
 }
 
 void writeSet(int fd)
 {
 	srand(time(NULL));
 	int random = rand()%3+1;
-	int res;
+	int res;	
 	char set[5] = {0x7E,0x03,0x03,0x00,0x7E};
 	char set3[5] = {0x7E,0x03,0x03,0x01,0x7E};
 
-	switch(random)
+	switch(random) 
 	{
 		case 1:
 		printf("PRINTING RIGHT SET\n");
@@ -68,10 +67,10 @@ void writeSet(int fd)
 		printf("?????\n");
 		break;
 	}
+	
+	
 
-
-
-	printf("%d bytes written\n", res);
+	printf("%d bytes written\n", res);	
 
 }
 
@@ -90,6 +89,7 @@ filePacket getDataPacket(int fd)
 
 	while( ( ch = fgetc(fp) ) != EOF )
 	{
+
 		sizeDataPacket++;
 	}
 
@@ -98,6 +98,7 @@ filePacket getDataPacket(int fd)
 	int j = 0;
 	while( ( ch = fgetc(fp) ) != EOF )
 	{
+
 		if(++i % 16)
 		{
 			dataPacket[j] = ch;
@@ -142,6 +143,8 @@ filePacket getDataPacket(int fd)
 	return finalPacket;
 }
 
+
+
 int ReadRR(int fd)
 {
 	int counter = 0;
@@ -159,11 +162,11 @@ int ReadRR(int fd)
 	rr[2] = C;
 	rr[3] = BCC1;
 	rr[4] = FLAG;
-
+	
 	int res = 0;
 
 
-	while (STOP==FALSE && counter < 5)
+	while (STOP==FALSE && counter < 5) 
 	{
 		res = read(fd,buf,1);
 
@@ -193,7 +196,7 @@ int ReadRR(int fd)
 		counter++;
 
 		if (counter==5 && errorflag ==0)
-		{
+		{ 
 			STOP=TRUE;
 			return res;
 		}
@@ -208,7 +211,7 @@ int readUa(int fd)
 	int counter = 0;
 	int errorflag =0;
 
-	while (STOP==FALSE && counter < 5)
+	while (STOP==FALSE && counter < 5) 
 	{
 		res = read(fd,buf,1);
 
@@ -234,18 +237,18 @@ int readUa(int fd)
 			if(buf[0]!=ua[4])
 				errorflag=-1;
 			break;
-		};
+		};  		
 		counter++;
 
 		if (counter==5 && errorflag ==0)
-		{
+		{ 
 			STOP=TRUE;
 		}
 	}
 	return res;
 }
 
-char *buildStartPacket(int fd)
+char *buildStartPacket()
 {
 	int fsize, aux1, recoveredFileSize=0, i=0, j=0;
 	char *fileName = "pinguim.gif";
@@ -270,7 +273,7 @@ char *buildStartPacket(int fd)
 	if(i<3)
 	{
 		sz[i]=aux1;
-		for(j=i+1;j<3;j++)
+		for(j=i+1;j<3;j++) 
 			sz[j]=0;
 	}
 
@@ -314,7 +317,7 @@ char *buildStartPacket(int fd)
 	BCC2 = startBuf[0] ^ startBuf[1];
 	for (i = 2; i < startBufSize;i++)
 	{
-		BCC2 = BCC2^startBuf[i];
+		BCC2 ^= startBuf[i];
 	}
 
 	//STUFFING OF DATA PACKAGE
@@ -340,20 +343,12 @@ char *buildStartPacket(int fd)
 		}
 		else
 			dataPackage[i] = startBuf[i];
+
 		j++;
 	}
 	dataPackage[sizeFinal-2] = BCC2;
 	dataPackage[sizeFinal-1] = FLAG;
 
-	i = 0;
-	for (; i < sizeFinal;i++)
-	{
-		printf("dataPackage[%d] = 0x%02X\n",i,dataPackage[i]);
-	}
-
-	int res = 0;
-	res = write(fd, dataPackage, sizeFinal);
-	printf("%d bytes written\n",res);
 	return 0;
 }
 
@@ -365,7 +360,7 @@ int llwrite(int fd)
 
 int llread(int fd)
 {
-	return 0;
+	return 0;	
 }
 
 
@@ -374,7 +369,7 @@ int llopen(int fd)
 	while(conta < 4)
 	{
 		writeSet(fd);
-		alarm(3);
+		alarm(3);	
 
 		while(!flag && STOP == FALSE)
 			{	readUa(fd);	}
@@ -382,9 +377,9 @@ int llopen(int fd)
 		if(STOP==TRUE)
 		{
 			alarm(0);
-			return 0;
-		}
-		else
+			return 0;				
+		}		
+		else 
 			flag=0;
 	}
 	return -1;
@@ -397,8 +392,8 @@ int main(int argc, char** argv)
 	int fd;
 	struct termios oldtio,newtio;
 
-	if ( (argc < 2) ||
-		((strcmp("/dev/ttyS0", argv[1])!=0) &&
+	if ( (argc < 2) || 
+		((strcmp("/dev/ttyS0", argv[1])!=0) && 
 			(strcmp("/dev/ttyS1", argv[1])!=0) )) {
 		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
 	exit(1);
@@ -432,9 +427,9 @@ newtio.c_lflag = 0;
 
 
 
-  /*
-    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
-    leitura do(s) prï¿½ximo(s) caracter(es)
+  /* 
+    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
+    leitura do(s) próximo(s) caracter(es)
   */
 
 
@@ -447,34 +442,34 @@ if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
 }
 
     //printf("Message to send: ");
-	buildStartPacket(fd);
-	//llwrite(fd);
+buildStartPacket();
+	//llwrite(fd);	
 	//llopen(fd);
 
 
 /*
 	gets(buf);
-
+    
    	int tam = strlen(buf);
-
+    
     res = write(fd,buf,tam+1);
     printf("%d bytes written\n", res);
-
+	
 	//sleep(1);
 
 	i = 0;
     while (STOP==FALSE) {
-      res = read(fd,buf_res+i,1);
+      res = read(fd,buf_res+i,1); 
       i++;
-      if(buf_res[i-1] == '\0')
-         STOP = TRUE;
+      if(buf_res[i-1] == '\0') 
+         STOP = TRUE;    	
     }
 
 	printf("Message received: %s\n", buf_res);*/
 
-  /*
-    O ciclo FOR e as instruï¿½ï¿½es seguintes devem ser alterados de modo a respeitar
-    o indicado no guiï¿½o
+  /* 
+    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
+    o indicado no guião 
   */
 
 
@@ -489,3 +484,6 @@ close(fd);
 return 0;
 
 }
+
+
+
