@@ -23,6 +23,10 @@ volatile int readFile=FALSE;
 volatile int readStart = FALSE;
 //TODO retirar por problemas de memória
 
+typedef struct{
+	char arr[4];
+} ResponseArray;
+
 int file_size=0;
 char* file_name;
 
@@ -215,55 +219,67 @@ char destuffPack(int fd,char* buf,size_t length)
 
 }
 
+void printArray(char* arr){
+	int index;
+	for( index = 0; index < (sizeof(arr) / sizeof(arr[0])); index++){
+			printf( "%X", arr[index] );
+			printf( "\n" );
+	}
+}
 
-char* readInfPackHeader(int fd, char* buf){
+ResponseArray readInfPackHeader(int fd, char* buf){
 
 	//TODO Verificar se está tudo correto
 
 	//Verifying that the header of the package is correct
-	
-	char rr[4];
-	char llopencall[4];
+	ResponseArray response;
 	char c1alt;
-
+	char REJ[4]={0x7E,0x03,0x01,0x03^0x01};
+	char restartERR2[4]={ERR2,ERR2,ERR2,ERR2};
+	
 
 	//Verifying starting flag
 	if(buf[0] != 0x7E){
 		printf("first byte isn't flag error \n");
-		char rej[4]={0x7E,0x03,0x01,0x03^0x01};
-		return rej;
+		memcpy(response.arr,REJ,4);
+		printArray(response.arr);
+		return response;
 	}
 
 	//Verifying A
 	if(buf[1] != 0x03){
 		printf("read error in (A) \n");
-		rej={0x7E,0x03,0x01,0x03^0x01};
-		return rej;
+		memcpy(response.arr,REJ,4);
+		printArray(response.arr);
+		return response;
 	}
 
 	//Verifying C1
 	if(buf[2] != 0x00 && buf[2] != 0x40){
 		printf("read error in (C)");
-		rej={0x7E,0x03,0x01,0x03^0x01};
-		return rej;
+		memcpy(response.arr,REJ,4);
+		printArray(response.arr);
+		return response;
 	}
 	else if(buf[2]== 0x03){
 		if(buf[3]==0x00){
 			llopen(fd,1);
-			llopencall=[ERR2,ERR2,ERR2,ERR2];
-			return llopencall;	
+			memcpy(response.arr,restartERR2,4);
+			printArray(response.arr);
+			return response;	
 		}
 		
 		else{ 
 			printf("Invalid information packet\n");
 		}
-		
+			
 	}
 	//Verifying BCC1
-	if(buf[1]^buf[2] != buf[3]){
+	if((buf[1]^buf[2]) != buf[3]){
 		printf("A^C is not equal to BCC1 error");
-	    rej = {0x7E,0x03,0x01,0x03^0x01};
-		return rej;
+	    memcpy(response.arr,REJ,4);
+		printArray(response.arr);
+		return response;
 
 	}
 	
@@ -275,8 +291,11 @@ char* readInfPackHeader(int fd, char* buf){
 		c1alt = 0x00;
 	}
 	//criating header of start package to send
-	rr = {0x7E,0x03,c1alt,0x03^c1alt};
-	return rr;
+	char RR[4] = {0x7E,0x03,c1alt,0x03^c1alt};
+	memcpy(response.arr,RR,4);
+	printArray(response.arr);
+	
+	return response;
 }
 
 void readStartPacketInfo(char * startPacket){
@@ -289,31 +308,32 @@ void readStartPacketInfo(char * startPacket){
 }
 
 void validateStartPack(int fd){
-	char readchar[4], response[4];
+	char readchar[4];
+	ResponseArray response =readInfPackHeader(fd,readchar);
 	//read first 4 bytes to readchar, send readchar to readInfpacketHeader
-    strcpy(response,readInfPackHeader(fd,readchar));
+	
 
-    if(response[0]==ERR2)
+    if(response.arr[0]==ERR2)
     {
 		printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
 		readStart=FALSE;
 		return;
 	}
 		   
-    switch(response[2])
+    switch(response.arr[2])
 	{
 		case 0x00:
 		printf("Validated Starter Packet Header, gotta break it down now\n");
 		//ok this is the start  packet so let's separate header  from the actual info
 		//readStartPacketInfo(pr);	
 		//if no errors send RR0 ->START PACK Reading successful, ready to begin reading actual file
-		writeBytes(fd,response);
+		writeBytes(fd,response.arr);
 		readStart=TRUE;
 		break;
 		
 		case 0x01:
 		printf("Rejecting invalid Starter Packet, try again \n");
-		writeBytes(fd,response);
+		writeBytes(fd,response.arr);
 		readStart=FALSE;
 		break;
 	}
@@ -321,7 +341,7 @@ void validateStartPack(int fd){
 
 void llread(int fd,char * packet)
 {
-	 char readchar[4], response[4];
+	 char readchar[4];
 	
 	//TRYING TO READ JUST THE START PACKET
 	while(readStart == FALSE)
@@ -335,29 +355,29 @@ void llread(int fd,char * packet)
 		 	 while (readFile==FALSE) 
 			{   
 				//read first 4 bytes to readchar, send readchar to readInfpacketHeader
-				strcpy(response,readInfPackHeader(fd,readchar));
-				if(response[0]==ERR2)
+				ResponseArray response =readInfPackHeader(fd,readchar);
+				if(response.arr[0]==ERR2)
 				{
 				  printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
 				  readStart=FALSE;
 				  break;
 			    }	
 					
-			    switch(response[2])
+			    switch(response.arr[2])
 				{
 					case 0x00:
 						//readFilePAcketInfo(pr);	
 						//if no errors send RR0 ->FILE  INFO PACK Reading successful
-						writeBytes(fd,response);
+						writeBytes(fd,response.arr);
 						break;
 					case 0x40:
 						//readFilePAcketInfo(pr);	
 						//if no errors send RR0 ->FILE INFO PACK Reading successful
-						writeBytes(fd,response);
+						writeBytes(fd,response.arr);
 						break;
 					case 0x01:
 						//sent REJ
-						writeBytes(fd,response);
+						writeBytes(fd,response.arr);
 						break;
 				}
 			}   
