@@ -66,6 +66,73 @@ void writeSet(int fd)
 
 }
 
+int sendReadRR(int fd, int sendOrRead)
+{
+	int counter = 0;
+	int errorflag =0;
+	char rr[5];
+	char buf[5];
+
+	char FLAG=0x7E;
+	char A=0x03;
+	char C = 0x05;
+	char BCC1 = A^C;
+
+
+	rr[0] = FLAG;
+	rr[1] = A;
+	rr[2] = C;
+	rr[3] = BCC1;
+	rr[4] = FLAG;
+	
+	int res = 0;
+
+	if (sendOrRead == 1) //READING RR PACKET FROM FD
+	{
+		while (STOP==FALSE && counter < 5) 
+		{
+			res = read(fd,buf,1);
+
+			switch(counter)
+			{
+				case 0:
+				if(buf[0]!=rr[0])
+					errorflag=-1;
+				break;
+				case 1:
+				if(buf[0]!=rr[1])
+					errorflag=-1;
+				break;
+				case 2:
+				if(buf[0]!=rr[2])
+					errorflag=-1;
+				break;
+				case 3:
+				if(buf[0]!=rr[3])
+					errorflag=-1;
+				break;
+				case 4:
+				if(buf[0]!=rr[4])
+					errorflag=-1;
+				break;
+			};  		
+			counter++;
+
+			if (counter==5 && errorflag ==0)
+			{ 
+				STOP=TRUE;
+				return res;
+			}
+		}	
+	}
+	else //WRITING RR PACKET IN FD
+	{
+		res = write(fd,rr,5);
+		return res;
+	}
+
+}
+
 int readUa(int fd)
 {
 	char buf[1];
@@ -108,33 +175,6 @@ int readUa(int fd)
 			STOP=TRUE;
 		}
 	}
-	return res;
-}
-
-
-int sendkRR(int fd)
-{
-	char FLAG=0x7E;
-	char A=0x03;
-	char C;
-	char BCC1;
-	int res;
-	
-	if (c_flag == 1)
-		C = 0x00;
-	else
-		C = 0x40;
-
-	BCC1 = A^C;
-
-	char rr[5];
-	rr[0] = FLAG;
-	rr[1] = A;
-	rr[2] = C;
-	rr[3] = BCC1;
-	rr[4] = FLAG;
-
-	res=write(fd, rr, strlen(rr));
 	return res;
 }
 
@@ -362,6 +402,9 @@ buildStartPacket();
     O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
     o indicado no guião 
   */
+
+
+
 
 if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
 	perror("tcsetattr");
