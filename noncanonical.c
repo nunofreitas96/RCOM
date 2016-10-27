@@ -19,15 +19,15 @@
 
 int status = TRUE;
 volatile int STOP=FALSE;
-volatile int STOP2=FALSE;
+volatile int readFile=FALSE;
+volatile int readStart = FALSE;
 //TODO retirar por problemas de memória
 
 int file_size=0;
 char* file_name;
 
 //Funções GUIA1
-void writeBytes(int fd, char* message)
-{
+void writeBytes(int fd, char* message){
   	
 	printf("SendBytes Initialized\n");
     int size=strlen(message);
@@ -40,8 +40,7 @@ void writeBytes(int fd, char* message)
 }
 
 
-char * readBytes(int fd)
-{
+char * readBytes(int fd){
    	char* collectedString=malloc (sizeof (char) * 255); 	
 	char buf[2];    
 	int counter=0,res=0;
@@ -119,8 +118,7 @@ char readSupervision(int fd, int counter){
 }
 
 
-void llopen(int fd, int type)
-{
+void llopen(int fd, int type){
  char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
  char readchar[2];
  int counter = 0;
@@ -152,52 +150,8 @@ void llopen(int fd, int type)
     writeBytes(fd,ua);
 }
 
-void llread(int fd,char * packet){
-	 char readchar[4];
-	 int readStart = FALSE;
-
-	 while (STOP2==FALSE) {       /* loop for input */
-		 
-	  readchar=readInfPackHeader(fd);
-	  
-	   if(readchar==ERR){
-		//send erroR RR
-		continue;
-	  }
-	   
-	  if(readchar==ERR2){
-		  //aqui chamou o llopen e mandou UA
-		readStart=FALSE;
-		continue;
-	  }
-	if(readStart!=TRUE){
-	 //readStartPacketInfo(pr);	
-	 if(readStartPacketInfo==0)
-		 readStart=TRUE;
-		//entrar loop de ler infpack, sem ler startpacketinfo
-	}
-    else //ler resto do ficheiro ficheiro	
-	 
-	
-	 
-	  printf("%c \n",readchar[0]);
-	
-	  
-	  
-	  counter++;
-
-	 
-	  
-	  else(counter==5){ 
-		 STOP=TRUE;
-	  }
-	  
-	 } 
-	
-	
-}
-
-char destuffPack(int fd,char* buf,size_t length){
+char destuffPack(int fd,char* buf,size_t length)
+{
 	//Buffer whose content will be destuffed
 	//TODO make this more accessible to other functions	
 	char dbuf[length];
@@ -250,7 +204,7 @@ char destuffPack(int fd,char* buf,size_t length){
 				}
 		} 
 
-	j++:
+	j++;
 	 
 
 	}
@@ -268,30 +222,36 @@ char* readInfPackHeader(int fd, char* buf){
 
 	//Verifying that the header of the package is correct
 	
+	char rr[4];
+	char llopencall[4];
 	char c1alt;
 
 
 	//Verifying starting flag
 	if(buf[0] != 0x7E){
 		printf("first byte isn't flag error \n");
-		return ERR;
+		char rej[4]={0x7E,0x03,0x01,0x03^0x01};
+		return rej;
 	}
 
 	//Verifying A
 	if(buf[1] != 0x03){
 		printf("read error in (A) \n");
-		return ERR;
+		rej={0x7E,0x03,0x01,0x03^0x01};
+		return rej;
 	}
 
 	//Verifying C1
 	if(buf[2] != 0x00 && buf[2] != 0x40){
 		printf("read error in (C)");
-		return ERR;
+		rej={0x7E,0x03,0x01,0x03^0x01};
+		return rej;
 	}
 	else if(buf[2]== 0x03){
 		if(buf[3]==0x00){
 			llopen(fd,1);
-			return ERR2;	
+			llopencall=[ERR2,ERR2,ERR2,ERR2];
+			return llopencall;	
 		}
 		
 		else{ 
@@ -302,7 +262,8 @@ char* readInfPackHeader(int fd, char* buf){
 	//Verifying BCC1
 	if(buf[1]^buf[2] != buf[3]){
 		printf("A^C is not equal to BCC1 error");
-		return ERR;
+	    rej = {0x7E,0x03,0x01,0x03^0x01};
+		return rej;
 
 	}
 	
@@ -314,8 +275,7 @@ char* readInfPackHeader(int fd, char* buf){
 		c1alt = 0x00;
 	}
 	//criating header of start package to send
-	char* rr = [0x7E,0x03,c1alt,0x03^c1alt];
-	
+	rr = {0x7E,0x03,c1alt,0x03^c1alt};
 	return rr;
 }
 
@@ -328,26 +288,83 @@ void readStartPacketInfo(char * startPacket){
 
 }
 
-char sendRR(int fd,char* rr){
-	
-	
-	//TODO testing required I need clarification on send
-	printf("SendBytes Initialized\n");
-    int size=strlen(rr);
-	int sent = 0;
+void validateStartPack(int fd){
+	char readchar[4], response[4];
+	//read first 4 bytes to readchar, send readchar to readInfpacketHeader
+    strcpy(response,readInfPackHeader(fd,readchar));
 
-    while( (sent = write(fd,rr,size+1)) < size ){
-        size -= sent;
-    }
-	
+    if(response[0]==ERR2)
+    {
+		printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
+		readStart=FALSE;
+		return;
+	}
+		   
+    switch(response[2])
+	{
+		case 0x00:
+		printf("Validated Starter Packet Header, gotta break it down now\n");
+		//ok this is the start  packet so let's separate header  from the actual info
+		//readStartPacketInfo(pr);	
+		//if no errors send RR0 ->START PACK Reading successful, ready to begin reading actual file
+		writeBytes(fd,response);
+		readStart=TRUE;
+		break;
+		
+		case 0x01:
+		printf("Rejecting invalid Starter Packet, try again \n");
+		writeBytes(fd,response);
+		readStart=FALSE;
+		break;
+	}
 }
 
-
-
-
-
-
-
+void llread(int fd,char * packet)
+{
+	 char readchar[4], response[4];
+	
+	//TRYING TO READ JUST THE START PACKET
+	while(readStart == FALSE)
+	{
+		
+		validateStartPack(fd);   
+		 
+		if(readStart==TRUE)
+		{
+			//reading actual file
+		 	 while (readFile==FALSE) 
+			{   
+				//read first 4 bytes to readchar, send readchar to readInfpacketHeader
+				strcpy(response,readInfPackHeader(fd,readchar));
+				if(response[0]==ERR2)
+				{
+				  printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
+				  readStart=FALSE;
+				  break;
+			    }	
+					
+			    switch(response[2])
+				{
+					case 0x00:
+						//readFilePAcketInfo(pr);	
+						//if no errors send RR0 ->FILE  INFO PACK Reading successful
+						writeBytes(fd,response);
+						break;
+					case 0x40:
+						//readFilePAcketInfo(pr);	
+						//if no errors send RR0 ->FILE INFO PACK Reading successful
+						writeBytes(fd,response);
+						break;
+					case 0x01:
+						//sent REJ
+						writeBytes(fd,response);
+						break;
+				}
+			}   
+		}
+	}
+	
+}
 
 
 int main(int argc, char** argv)
