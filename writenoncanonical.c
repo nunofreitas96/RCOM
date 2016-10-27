@@ -18,6 +18,14 @@
 #define FALSE 0
 #define TRUE 1
 
+#define FLAG 0x7E
+
+typedef struct
+{
+	int arrSize;
+	char fileInfo[arrSize];
+} filePacket;
+
 int c_flag = 0; //criei esta variavel para verificar se C é 0x00 ou 0x40
 FILE *fp;
 
@@ -66,14 +74,84 @@ void writeSet(int fd)
 
 }
 
-int sendReadRR(int fd, int sendOrRead)
+//CHECK THIS LATER @HOME
+//CHECK THIS LATER @HOME
+//CHECK THIS LATER @HOME
+//CHECK THIS LATER @HOME
+//CHECK THIS LATER @HOME
+//CHECK THIS LATER @HOME
+//CHECK THIS LATER @HOME
+int getDataPacket(int fd)
+{
+	char ch;
+	int i = 0, sizeDataPacket = 0;
+	fp = fopen("pinguim.gif","rb");
+	if (fp == NULL)
+	{
+		printf("Error reading from file\n");
+		return 1;
+	}
+
+	while( ( ch = fgetc(fp) ) != EOF )
+	{
+
+		sizeDataPacket++;
+	}
+
+	char dataPacket[sizeDataPacket];
+
+	int j = 0;
+	while( ( ch = fgetc(fp) ) != EOF )
+	{
+
+		if(++i % 16)
+		{
+			dataPacket[j] = ch;
+			j++;
+		}
+	}
+
+	//FAZER CICLO E VERIFICAR CONTEUDO DE DATAPACKET
+	
+	int newSize = sizeDataPacket+6;
+	while (i = 0; i < sizeDataPacket; i++)
+	{
+		if (dataPacket[i] == 0x7E || dataPacket[i] == 0x7D)
+			newSize++;
+	}
+
+	char finalPacket[newSize];
+
+	j = 1;
+	while (i = 0; i < newSize; i++)
+	{
+		if (dataPacket[i] == 0x7E)
+		{
+			finalPacket[i] = 0x7D;
+			finalPacket[j] = 0x5E;
+		}
+		else if (dataPacket[i] == 0x7D)
+		{
+			finalPacket[i] = 0x7D;
+			finalPacket[j] = 0x5D;
+		}
+		else
+			finalPacket[i] = dataPacket[i];
+		j++;
+	}
+
+	fclose(fp);
+
+	return 0;
+}
+
+int ReadRR(int fd)
 {
 	int counter = 0;
 	int errorflag =0;
 	char rr[5];
 	char buf[5];
 
-	char FLAG=0x7E;
 	char A=0x03;
 	char C = 0x05;
 	char BCC1 = A^C;
@@ -87,50 +165,42 @@ int sendReadRR(int fd, int sendOrRead)
 	
 	int res = 0;
 
-	if (sendOrRead == 1) //READING RR PACKET FROM FD
+
+	while (STOP==FALSE && counter < 5) 
 	{
-		while (STOP==FALSE && counter < 5) 
+		res = read(fd,buf,1);
+
+		switch(counter)
 		{
-			res = read(fd,buf,1);
+			case 0:
+			if(buf[0]!=rr[0])
+				errorflag=-1;
+			break;
+			case 1:
+			if(buf[0]!=rr[1])
+				errorflag=-1;
+			break;
+			case 2:
+			if(buf[0]!=rr[2])
+				errorflag=-1;
+			break;
+			case 3:
+			if(buf[0]!=rr[3])
+				errorflag=-1;
+			break;
+			case 4:
+			if(buf[0]!=rr[4])
+				errorflag=-1;
+			break;
+		};
+		counter++;
 
-			switch(counter)
-			{
-				case 0:
-				if(buf[0]!=rr[0])
-					errorflag=-1;
-				break;
-				case 1:
-				if(buf[0]!=rr[1])
-					errorflag=-1;
-				break;
-				case 2:
-				if(buf[0]!=rr[2])
-					errorflag=-1;
-				break;
-				case 3:
-				if(buf[0]!=rr[3])
-					errorflag=-1;
-				break;
-				case 4:
-				if(buf[0]!=rr[4])
-					errorflag=-1;
-				break;
-			};  		
-			counter++;
-
-			if (counter==5 && errorflag ==0)
-			{ 
-				STOP=TRUE;
-				return res;
-			}
-		}	
+		if (counter==5 && errorflag ==0)
+		{ 
+			STOP=TRUE;
+			return res;
+		}
 	}
-	else //WRITING RR PACKET IN FD
-	{
-		res = write(fd,rr,5);
-		return res;
-	}
-
 }
 
 int readUa(int fd)
@@ -188,7 +258,6 @@ char *buildStartPacket()
 	fseek(fp,0,SEEK_SET);
 	aux1 = fsize;
 
-	char FLAG = 0x7E;
 	char A = 0x03;
 	char C1 = 0x00;
 	char BCC1 = A^C1;
@@ -209,7 +278,7 @@ char *buildStartPacket()
 	}
 
 	fclose(fp);
-	
+
 	int startBufSize = 9+strlen(fileName);
 
 	char *startBuf = (char *)malloc(startBufSize);
@@ -285,7 +354,7 @@ char *buildStartPacket()
 
 int llwrite(int fd)
 {
-	
+
 	return 0;
 }
 
@@ -301,7 +370,7 @@ int llopen(int fd)
 	{
 		writeSet(fd);
 		alarm(3);	
-		
+
 		while(!flag && STOP == FALSE)
 			{	readUa(fd);	}
 
