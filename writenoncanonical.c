@@ -23,7 +23,7 @@
 typedef struct
 {
 	int arrSize;
-	char fileInfo[arrSize];
+	char *fileInfo;
 } filePacket;
 
 int c_flag = 0; //criei esta variavel para verificar se C é 0x00 ou 0x40
@@ -81,16 +81,11 @@ void writeSet(int fd)
 //CHECK THIS LATER @HOME
 //CHECK THIS LATER @HOME
 //CHECK THIS LATER @HOME
-int getDataPacket(int fd)
+filePacket getDataPacket(int fd)
 {
 	char ch;
 	int i = 0, sizeDataPacket = 0;
 	fp = fopen("pinguim.gif","rb");
-	if (fp == NULL)
-	{
-		printf("Error reading from file\n");
-		return 1;
-	}
 
 	while( ( ch = fgetc(fp) ) != EOF )
 	{
@@ -112,38 +107,43 @@ int getDataPacket(int fd)
 	}
 
 	//FAZER CICLO E VERIFICAR CONTEUDO DE DATAPACKET
-	
 	int newSize = sizeDataPacket+6;
-	while (i = 0; i < sizeDataPacket; i++)
+
+	i=0;
+	for (; i < sizeDataPacket; i++)
 	{
 		if (dataPacket[i] == 0x7E || dataPacket[i] == 0x7D)
 			newSize++;
 	}
 
-	char finalPacket[newSize];
+	filePacket finalPacket;
+	finalPacket.arrSize = newSize;
+	finalPacket.fileInfo = (char *)malloc(newSize);
 
 	j = 1;
-	while (i = 0; i < newSize; i++)
+	for (i = 0; i < newSize; i++)
 	{
-		if (dataPacket[i] == 0x7E)
+		if (finalPacket.fileInfo[i] == 0x7E)
 		{
-			finalPacket[i] = 0x7D;
-			finalPacket[j] = 0x5E;
+			finalPacket.fileInfo[i] = 0x7D;
+			finalPacket.fileInfo[j] = 0x5E;
 		}
 		else if (dataPacket[i] == 0x7D)
 		{
-			finalPacket[i] = 0x7D;
-			finalPacket[j] = 0x5D;
+			finalPacket.fileInfo[i] = 0x7D;
+			finalPacket.fileInfo[j] = 0x5D;
 		}
 		else
-			finalPacket[i] = dataPacket[i];
+			finalPacket.fileInfo[i] = dataPacket[i];
 		j++;
 	}
 
 	fclose(fp);
 
-	return 0;
+	return finalPacket;
 }
+
+
 
 int ReadRR(int fd)
 {
