@@ -68,17 +68,9 @@ void writeSet(int fd)
 		printf("?????\n");
 		break;
 	}
-
-
-
 	printf("%d bytes written\n", res);
-
 }
 
-//CHECK THIS LATER @HOME
-//CHECK THIS LATER @HOME
-//CHECK THIS LATER @HOME
-//CHECK THIS LATER @HOME
 //CHECK THIS LATER @HOME
 //CHECK THIS LATER @HOME
 //CHECK THIS LATER @HOME
@@ -112,7 +104,7 @@ filePacket getDataPacket(int fd)
 	for (; i < sizeDataPacket; i++)
 	{
 		if (dataPacket[i] == 0x7E || dataPacket[i] == 0x7D)
-			newSize++;
+		newSize++;
 	}
 
 	filePacket finalPacket;
@@ -133,10 +125,9 @@ filePacket getDataPacket(int fd)
 			finalPacket.fileInfo[j] = 0x5D;
 		}
 		else
-			finalPacket.fileInfo[i] = dataPacket[i];
+		finalPacket.fileInfo[i] = dataPacket[i];
 		j++;
 	}
-
 	fclose(fp);
 
 	return finalPacket;
@@ -171,23 +162,23 @@ int ReadRR(int fd)
 		{
 			case 0:
 			if(buf[0]!=rr[0])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 1:
 			if(buf[0]!=rr[1])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 2:
 			if(buf[0]!=rr[2])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 3:
 			if(buf[0]!=rr[3])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 4:
 			if(buf[0]!=rr[4])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 		};
 		counter++;
@@ -216,23 +207,23 @@ int readUa(int fd)
 		{
 			case 0:
 			if(buf[0]!=ua[0])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 1:
 			if(buf[0]!=ua[1])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 2:
 			if(buf[0]!=ua[2])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 3:
 			if(buf[0]!=ua[3])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 			case 4:
 			if(buf[0]!=ua[4])
-				errorflag=-1;
+			errorflag=-1;
 			break;
 		};
 		counter++;
@@ -271,7 +262,7 @@ char *buildStartPacket(int fd)
 	{
 		sz[i]=aux1;
 		for(j=i+1;j<3;j++)
-			sz[j]=0;
+		sz[j]=0;
 	}
 
 	fclose(fp);
@@ -339,7 +330,7 @@ char *buildStartPacket(int fd)
 			dataPackage[j] = 0x5D;
 		}
 		else
-			dataPackage[i] = startBuf[i];
+		dataPackage[i] = startBuf[i];
 		j++;
 	}
 	dataPackage[sizeFinal-2] = BCC2;
@@ -377,7 +368,7 @@ int llopen(int fd)
 		alarm(3);
 
 		while(!flag && STOP == FALSE)
-			{	readUa(fd);	}
+		{	readUa(fd);	}
 
 		if(STOP==TRUE)
 		{
@@ -385,9 +376,14 @@ int llopen(int fd)
 			return 0;
 		}
 		else
-			flag=0;
+		flag=0;
 	}
 	return -1;
+}
+
+void stateMachine(int fd)
+{
+
 }
 
 int main(int argc, char** argv)
@@ -398,84 +394,84 @@ int main(int argc, char** argv)
 	struct termios oldtio,newtio;
 
 	if ( (argc < 2) ||
-		((strcmp("/dev/ttyS0", argv[1])!=0) &&
-			(strcmp("/dev/ttyS1", argv[1])!=0) )) {
+	((strcmp("/dev/ttyS0", argv[1])!=0) &&
+	(strcmp("/dev/ttyS1", argv[1])!=0) )) {
 		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-	exit(1);
-}
+		exit(1);
+	}
 
-fp = fopen("pinguim.gif","r");
-	  /*
-	    Open serial port device for reading and writing and not as controlling tty
-	    because we don't want to get killed if linenoise sends CTRL-C.
-	  */
-
-
-fd = open(argv[1], O_RDWR | O_NOCTTY );
-if (fd <0) {perror(argv[1]); exit(-1); }
-
-    if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
-perror("tcgetattr");
-exit(-1);
-}
-
-bzero(&newtio, sizeof(newtio));
-newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-newtio.c_iflag = IGNPAR;
-newtio.c_oflag = 0;
-
-    /* set input mode (non-canonical, no echo,...) */
-newtio.c_lflag = 0;
-
-    newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 0;   /* blocking read until 1 chars received */
+	fp = fopen("pinguim.gif","r");
+	/*
+	Open serial port device for reading and writing and not as controlling tty
+	because we don't want to get killed if linenoise sends CTRL-C.
+	*/
 
 
+	fd = open(argv[1], O_RDWR | O_NOCTTY );
+	if (fd <0) {perror(argv[1]); exit(-1); }
 
-  /*
-    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
-    leitura do(s) pr�ximo(s) caracter(es)
-  */
+	if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
+		perror("tcgetattr");
+		exit(-1);
+	}
+
+	bzero(&newtio, sizeof(newtio));
+	newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+	newtio.c_iflag = IGNPAR;
+	newtio.c_oflag = 0;
+
+	/* set input mode (non-canonical, no echo,...) */
+	newtio.c_lflag = 0;
+
+	newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
+	newtio.c_cc[VMIN]     = 0;   /* blocking read until 1 chars received */
 
 
 
-tcflush(fd, TCIOFLUSH);
+	/*
+	VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
+	leitura do(s) pr�ximo(s) caracter(es)
+	*/
 
-if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
-	perror("tcsetattr");
-	exit(-1);
-}
 
-    //printf("Message to send: ");
+
+	tcflush(fd, TCIOFLUSH);
+
+	if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
+		perror("tcsetattr");
+		exit(-1);
+	}
+
+	//printf("Message to send: ");
 	buildStartPacket(fd);
 	//llwrite(fd);
 	//llopen(fd);
 
 
-/*
+	/*
 	gets(buf);
 
-   	int tam = strlen(buf);
+	int tam = strlen(buf);
 
-    res = write(fd,buf,tam+1);
-    printf("%d bytes written\n", res);
+	res = write(fd,buf,tam+1);
+	printf("%d bytes written\n", res);
 
 	//sleep(1);
 
 	i = 0;
-    while (STOP==FALSE) {
-      res = read(fd,buf_res+i,1);
-      i++;
-      if(buf_res[i-1] == '\0')
-         STOP = TRUE;
-    }
+	while (STOP==FALSE) {
+	res = read(fd,buf_res+i,1);
+	i++;
+	if(buf_res[i-1] == '\0')
+	STOP = TRUE;
+}
 
-	printf("Message received: %s\n", buf_res);*/
+printf("Message received: %s\n", buf_res);*/
 
-  /*
-    O ciclo FOR e as instru��es seguintes devem ser alterados de modo a respeitar
-    o indicado no gui�o
-  */
+/*
+O ciclo FOR e as instru��es seguintes devem ser alterados de modo a respeitar
+o indicado no gui�o
+*/
 
 
 
