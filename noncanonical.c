@@ -27,9 +27,18 @@ typedef struct{
 	char arr[4];
 } ResponseArray;
 
-int file_size=0;
-char* file_name;
+typedef struct{
+	char arr[30];
+	
+} StartPack;
 
+typedef struct{
+	char arr[30];
+} FileName;
+
+int file_size=0;
+//char* file_name;
+FileName filename;
 //Funções GUIA1
 void writeBytes(int fd, char* message){
 
@@ -154,12 +163,12 @@ void llopen(int fd, int type){
     writeBytes(fd,ua);
 }
 
-char destuffPack(int fd,char* buf,size_t length)
+StartPack destuffPack(int fd,char* buf,size_t length)
 {
 	//Buffer whose content will be destuffed
 	//TODO make this more accessible to other functions
 	char dbuf[length];
-
+	StartPack startPack;
 	// counter for finding all bytes to destuff, starts on 4 because from 0 to 3 is the header
 	//j is a counter to put bytes on dbuf;
 	int i =4;
@@ -213,8 +222,11 @@ char destuffPack(int fd,char* buf,size_t length)
 
 	}
 
+	memcpy(startPack.arr,dbuf,strlen(dbuf);
+	printf("Received header with no errors, printed RR\n");
 
-	return ERR;
+	return startPack;
+	
 
 
 }
@@ -295,13 +307,21 @@ ResponseArray readInfPackHeader(int fd, char* buf){
 }
 
 void readStartPacketInfo(char * startPacket){
-	//recebe trama start sem header
-	//destuff de startPacket
-	//ler o tamanho do ficheiro e guardar em variavel global file_size(int)
-	//ler o nome do ficheiro e guardar em variavel global file_name
-	//se tudo bem sucedido, retornar sucesso e llread começa a ler as tramas de ficheiro
+	int fileSize;
+	//TODO pôr isto bem
+	fileSize = startPacket[3] + startPacket[4]  + startPacket[5] + startPacket[6];
+	
+	int fileNameSize;
+	
+	fileNameSize = startPacket[8];
+	int i =0;
+	while( i < fileNameSize){
+		filename.arr[i] = startPacket[9 +i];
+	}
 
 }
+
+
 
 void validateStartPack(int fd){
 	unsigned char c, flag;
@@ -349,6 +369,10 @@ void validateStartPack(int fd){
 		//ok this is the start  packet so let's separate header  from the actual info
 		//readStartPacketInfo(pr);
 		//if no errors send RR0 ->START PACK Reading successful, ready to begin reading actual file
+		StartPack startPack = destuffPack(fd, readchar, strlen(readchar)-4);
+		readStartPacketInfo(startPack.arr);
+		
+		
 		writeBytes(fd,response.arr);
 		readStart=TRUE;
 		break;
