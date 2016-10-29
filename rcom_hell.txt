@@ -18,5 +18,7 @@ infos do ficheiro - colocar a trama START numa trama I com informaçao ficheiro
 	4. Receber RR do receptor.
 	5. proxima trama C = 0x40 (alternando a cada iteraçao, envio de dados)
 
+	
+Anexos:
 	receptor 1o faz destuffing e depois verifica flags
 	emissor faz bcc2 e depois stuffing
