@@ -84,8 +84,6 @@ void writeSet(int fd)
 	printf("%d bytes written\n", res);
 }
 
-
-
 int sendInfoFile(int fd, unsigned char *buf, int size) //Handles the process of sending portions of the file to receiver
 {
 	int newSize = (size+6),i,j,res,k;
@@ -497,11 +495,11 @@ char *buildStartPacket(int fd)
 	int res;
 	res = write(fd, dataPackage, sizeFinal);
 
-	i = 0;
+	/*i = 0;
 	for(;i < sizeFinal; i++)
 	{
 		printf("dataPackage[%d] = 0x%02X\n",i,(unsigned char)dataPackage[i]);
-	}
+	}*/
 
 	printf("%d bytes written\n",res);
 	return 0;
@@ -553,7 +551,7 @@ int main(int argc, char** argv)
 
 	if ( (argc < 2) ||
 		((strcmp("/dev/ttyS0", argv[1])!=0) &&
-			(strcmp("/dev/ttyS1", argv[1])!=0) )) 
+			(strcmp("/dev/ttyS1", argv[1])!=0) ))
 	{
 		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
 		exit(1);
@@ -561,12 +559,12 @@ int main(int argc, char** argv)
 
 	fp = fopen("pinguim.gif","r");
 	fd = open(argv[1], O_RDWR | O_NOCTTY );
-	if (fd <0) 
+	if (fd <0)
 	{
-		perror(argv[1]); exit(-1); 
+		perror(argv[1]); exit(-1);
 	}
 
-	if ( tcgetattr(fd,&oldtio) == -1) 
+	if ( tcgetattr(fd,&oldtio) == -1)
 	{
 		perror("tcgetattr");
 		exit(-1);
@@ -583,7 +581,7 @@ int main(int argc, char** argv)
 
 	tcflush(fd, TCIOFLUSH);
 
-	if ( tcsetattr(fd,TCSANOW,&newtio) == -1) 
+	if ( tcsetattr(fd,TCSANOW,&newtio) == -1)
 	{
 		perror("tcsetattr");
 		exit(-1);
