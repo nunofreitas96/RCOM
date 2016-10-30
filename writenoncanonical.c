@@ -31,9 +31,9 @@ int flag=0, conta=1;
 void switchC1()
 {
 	if (C1 == 0x00)
-	C1 = 0x40;
+		C1 = 0x40;
 	else
-	C1 = 0x00;
+		C1 = 0x00;
 	return ;
 }
 void atende()
@@ -47,7 +47,7 @@ void atende()
 int writeBytes(int fd)
 {
 	char ua[5] = {0x7E,0x03,0x03,0x01,0x7E};
-  int size=strlen(ua);
+	int size=strlen(ua);
 	int res;
 
 	res = write(fd,ua,5);
@@ -88,7 +88,7 @@ void writeSet(int fd)
 
 int sendInfoFile(int fd, unsigned char *buf, int size) //Handles the process of sending portions of the file to receiver
 {
-	int newSize = (size+6),i,j,res;
+	int newSize = (size+6),i,j,res,k;
 	unsigned char BCC2,BCC1;
 
 	for (i = 0; i < size; i++)
@@ -114,25 +114,31 @@ int sendInfoFile(int fd, unsigned char *buf, int size) //Handles the process of 
 	BCC1 = dataPacket[1]^C1;
 	dataPacket[3] = BCC1;
 
-	int k;
-	i = 4;
-	j = i+1;
-	for (k = 0; k < size;k++)
+	j = 1;
+	k = 0;
+	for (i = 0; i < startBufSize;i++)
 	{
-		if (buf[k] == 0x7E)
+		if (buf[i] == 0x7E)
 		{
-				dataPacket[i] = 0x7D;
-				dataPacket[j] = 0x5E;
+			dataPacket[k] = 0x7D;
+			dataPacket[j] = 0x5E;
+			k++;
+			j++;
 		}
 
-		if(buf[k] == 0x7D)
+		if (buf[i] == 0x7D)
 		{
-				dataPacket[i] = 0x7D;
-				dataPacket[j] = 0x5D;
+			dataPacket[k] = 0x7D;
+			dataPacket[j] = 0x5D;
+			k++;
+			j++;
 		}
-		dataPacket[i] = (unsigned char)buf[k];
-		i++;
+
+		if(buf[i] != 0x7D && buf[i] != 0x7E)
+			dataPacket[k] = buf[i];
+
 		j++;
+		k++;
 	}
 
 	dataPacket[newSize-2] = BCC2;
@@ -157,6 +163,7 @@ int getDataPacket(int fd) //Handles the process of dividing file into 512 bytes 
 
 	unsigned char *dataPacket = (unsigned char *)malloc(512);
 
+	//READ 512 BYTES "AT A TIME"
 	while ((bytesRead = fread(dataPacket, sizeof(unsigned char), 512, fp)) > 0)
 	{
 		read += bytesRead;
@@ -400,24 +407,18 @@ int readUa(int fd)
 
 char *buildStartPacket(int fd)
 {
-	int fsize, aux1, recoveredFileSize=0, i=0, j=0;
+	int fsize, i=0, j=0;
 	char *fileName = "pinguim.gif";
-	char sz[4]={'0','0','0','0'};
 	fseek(fp,0,SEEK_END);
 	fsize = ftell(fp);
 	fseek(fp,0,SEEK_SET);
-	aux1 = fsize;
-
-	//printf("%X\n\n",(char *)fsize);
 
 	char A = 0x03;
 	char BCC1 = A^C1;
 	char BCC2;
 
 	fclose(fp);
-
-	//int startBufSize = 9+strlen(fileName);
-	int startBufSize = 9+strlen(fileName)+1;
+	int startBufSize = 9+strlen(fileName);
 
 	char *startBuf = (char *)malloc(startBufSize);
 
@@ -441,52 +442,15 @@ char *buildStartPacket(int fd)
 	startBuf[19] = 'f';
 
 	//COMPUTE FINAL SIZE OF DATA ARRAY
-	int sizeFinal = startBufSize;
+	int sizeFinal = startBufSize+6;
 	for (i = 0; i < startBufSize;i++)
 	{
 		if (startBuf[i] == 0x7E || startBuf[i] == 0x7D)
 			sizeFinal++;
 	}
-	printf("%lu \n",sizeFinal);
-
-	for (i = 0; i < startBufSize;i++)
-		printf("startBuf[%d] = %02X\n",i,startBuf[i]);
-
-	char *blet = (unsigned char *)malloc(sizeFinal);
-
-	j = 1;
-	int k=0;
-	for (i = 0; i < startBufSize;i++)
-	{
-		if (startBuf[i] == 0x7E)
-		{
-			blet[k] = 0x7D;
-			blet[j] = 0x5E;
-			k++;
-			j++;
-		}
-
-		if (startBuf[i] == 0x7D)
-		{
-			blet[k] = 0x7D;
-			blet[j] = 0x5D;
-			k++;
-			j++;
-		}
-
-		if(startBuf[i] != 0x7D && startBuf[i] != 0x7E)
-			blet[k] = startBuf[i];
-
-		j++;
-		k++;
-	}
-
-	printf("after stuff %02x\n",blet[20]);
-	for (i = 0; i < sizeFinal;i++)
-		printf("blet[%d] = %02X\n",i,blet[i]);
 
 	//COMPUTING BCC2
-	BCC2 = startBuf[0] ^ startBuf[1];
+	BCC2 = startBuf[0]^startBuf[1];
 	for (i = 2; i < startBufSize;i++)
 	{
 		BCC2 = BCC2^startBuf[i];
@@ -500,39 +464,44 @@ char *buildStartPacket(int fd)
 	BCC1 = A^C1;
 	dataPackage[3] = BCC1;
 
-	//BUILDING DATA PACKAGE AND INSERTING IN "I" PACKET
-/*	j = 5;
-	k = 0;
-	for (i = 4; i < sizeFinal;i++)
+	j = 1;
+	int k=0;
+	for (i = 0; i < startBufSize;i++)
 	{
-		if (startBuf[k] == 0x7E)
+		if (startBuf[i] == 0x7E)
 		{
-			dataPackage[i] = 0x7D;
+			dataPackage[k] = 0x7D;
 			dataPackage[j] = 0x5E;
+			k++;
+			j++;
 		}
-		else if (startBuf[k] == 0x7D)
+
+		if (startBuf[i] == 0x7D)
 		{
-			dataPackage[i] = 0x7D;
+			dataPackage[k] = 0x7D;
 			dataPackage[j] = 0x5D;
+			k++;
+			j++;
 		}
-		else
-			dataPackage[i] = startBuf[k];
+
+		if(startBuf[i] != 0x7D && startBuf[i] != 0x7E)
+			dataPackage[k] = startBuf[i];
+
 		j++;
 		k++;
-	}*/
+	}
 
-	//ISTO ESTA ASSIM FOR DA SAKE OF TESTING
 	dataPackage[sizeFinal-2] = BCC2;
 	dataPackage[sizeFinal-1] = FLAG;
 
-	int res = 0;
+	int res;
 	res = write(fd, dataPackage, sizeFinal);
 
-	/*i = 0;
+	i = 0;
 	for(;i < sizeFinal; i++)
 	{
 		printf("dataPackage[%d] = 0x%02X\n",i,(unsigned char)dataPackage[i]);
-	}*/
+	}
 
 	printf("%d bytes written\n",res);
 	return 0;
@@ -578,102 +547,57 @@ int llopen(int fd)
 
 int main(int argc, char** argv)
 {
-
-	(void) signal(SIGALRM, atende); // ENABLES ALARM SIGNALS
+	(void) signal(SIGALRM, atende);
 	int fd;
 	struct termios oldtio,newtio;
 
 	if ( (argc < 2) ||
 		((strcmp("/dev/ttyS0", argv[1])!=0) &&
-			(strcmp("/dev/ttyS1", argv[1])!=0) )) {
+			(strcmp("/dev/ttyS1", argv[1])!=0) )) 
+	{
 		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-	exit(1);
-}
+		exit(1);
+	}
 
 	fp = fopen("pinguim.gif","r");
-	/*
-	Open serial port device for reading and writing and not as controlling tty
-	because we don't want to get killed if linenoise sends CTRL-C.
-	*/
+	fd = open(argv[1], O_RDWR | O_NOCTTY );
+	if (fd <0) 
+	{
+		perror(argv[1]); exit(-1); 
+	}
 
+	if ( tcgetattr(fd,&oldtio) == -1) 
+	{
+		perror("tcgetattr");
+		exit(-1);
+	}
 
-fd = open(argv[1], O_RDWR | O_NOCTTY );
-if (fd <0) {perror(argv[1]); exit(-1); }
+	bzero(&newtio, sizeof(newtio));
+	newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+	newtio.c_iflag = IGNPAR;
+	newtio.c_oflag = 0;
+	newtio.c_lflag = 0;
 
-	if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
-perror("tcgetattr");
-exit(-1);
-}
+	newtio.c_cc[VTIME]    = 3;
+	newtio.c_cc[VMIN]     = 0;
 
-bzero(&newtio, sizeof(newtio));
-newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-newtio.c_iflag = IGNPAR;
-newtio.c_oflag = 0;
+	tcflush(fd, TCIOFLUSH);
 
-	/* set input mode (non-canonical, no echo,...) */
-newtio.c_lflag = 0;
+	if ( tcsetattr(fd,TCSANOW,&newtio) == -1) 
+	{
+		perror("tcsetattr");
+		exit(-1);
+	}
 
-	newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
-	newtio.c_cc[VMIN]     = 0;   /* blocking read until 1 chars received */
-
-
-
-	/*
-	VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
-	leitura do(s) pr�ximo(s) caracter(es)
-	*/
-
-
-
-tcflush(fd, TCIOFLUSH);
-
-if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
-	perror("tcsetattr");
-	exit(-1);
-}
-
-	//printf("Message to send: ");
 	buildStartPacket(fd);
 	//getDataPacket(fd);
 	//cycle(fd);
 	//llwrite(fd);
 	//llopen(fd);
-
-
-	/*
-	gets(buf);
-
-	int tam = strlen(buf);
-
-	res = write(fd,buf,tam+1);
-	printf("%d bytes written\n", res);
-
-	//sleep(1);
-
-	i = 0;
-	while (STOP==FALSE) {
-	res = read(fd,buf_res+i,1);
-	i++;
-	if(buf_res[i-1] == '\0')
-	STOP = TRUE;
-}
-
-printf("Message received: %s\n", buf_res);*/
-
-/*
-O ciclo FOR e as instru��es seguintes devem ser alterados de modo a respeitar
-o indicado no gui�o
-*/
-
-
-
-
-if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-	perror("tcsetattr");
-	exit(-1);
-}
-
-close(fd);
-return 0;
-
+	if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
+		perror("tcsetattr");
+		exit(-1);
+	}
+	close(fd);
+	return 0;
 }
