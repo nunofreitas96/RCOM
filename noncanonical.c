@@ -28,17 +28,19 @@ typedef struct{
 } ResponseArray;
 
 typedef struct{
-	char arr[30];
-	
+	char* arr;
+	int size;
 } StartPack;
 
 typedef struct{
-	char arr[30];
-} FileName;
+	char* arr;
+	int namelength;
+	int fileSize;
+} FileData;
 
-int file_size=0;
+
 //char* file_name;
-FileName filename;
+FileData file;
 //Funções GUIA1
 void writeBytes(int fd, char* message){
 
@@ -189,7 +191,7 @@ StartPack destuffPack(int fd,char* buf,size_t length)
 				i = i+2;
 				if(i >= strlen(buf)){
 					printf("esse stuffing ta mal, oh boi");
-					return ERR;
+					//return ERR;
 				}
 
 			}
@@ -198,13 +200,13 @@ StartPack destuffPack(int fd,char* buf,size_t length)
 				i = i+2;
 					if(i >= strlen(buf)){
 					printf("esse stuffing ta mal, oh boi");
-					return ERR;
+					//return ERR;
 				}
 			}
 			else{
 				//TODO mudar antes de entrega a mensagem de erro
 				printf("esse stuffing ta mal, oh boi");
-				return ERR;
+				//return ERR;
 			}
 		}
 		//no flags
@@ -213,7 +215,7 @@ StartPack destuffPack(int fd,char* buf,size_t length)
 		i++;
 		if(i >= strlen(buf)){
 					printf("esse stuffing ta mal, oh boi");
-					return ERR;
+					//return ERR;
 				}
 		}
 
@@ -222,11 +224,11 @@ StartPack destuffPack(int fd,char* buf,size_t length)
 
 	}
 
-	memcpy(startPack.arr,dbuf,strlen(dbuf);
+	memcpy(startPack.arr,dbuf,strlen(dbuf));
 	printf("Received header with no errors, printed RR\n");
 
 	return startPack;
-	
+
 
 
 }
@@ -235,8 +237,7 @@ void printArray(char* arr,size_t length){
 
 	int index;
 	for( index = 0; index < length; index++){
-			printf( "0x%X", arr[index] );
-			printf( "\n" );
+			printf( "0x%X\n", (unsigned char)arr[index] );
 	}
 }
 
@@ -306,73 +307,113 @@ ResponseArray readInfPackHeader(int fd, char* buf){
 	return response;
 }
 
-void readStartPacketInfo(char * startPacket){
-	int fileSize;
-	//TODO pôr isto bem
-	fileSize = startPacket[3] + startPacket[4]  + startPacket[5] + startPacket[6];
-	
-	int fileNameSize;
-	
-	fileNameSize = startPacket[8];
-	int i =0;
-	while( i < fileNameSize){
-		filename.arr[i] = startPacket[9 +i];
-	}
 
+void readStartPacketInfo(char * startPacket){
+
+char tempI[5];
+char temp[50];
+int offset = 4;
+
+tempI[0]=startPacket[offset+6];
+tempI[1]=startPacket[offset+5];
+tempI[2]=startPacket[offset+4];
+tempI[3]=startPacket[offset+3];
+
+int currentI=offset+6;
+sprintf(temp,"%02x%02x%02x%02x",(unsigned char)tempI[0],(unsigned char)tempI[1],(unsigned char)tempI[2],(unsigned char)tempI[3]);
+printf("%s\n",temp);
+//output is 00002ad8
+file.fileSize=strtol(temp,NULL,16);
+printf("FILESIZE IS %d \n",file.fileSize);
+
+
+
+
+	int fileNameSize = startPacket[currentI+2];
+	printf("FILE NAME SIZE IS IS %d \n",fileNameSize);
+	file.arr=malloc(fileNameSize+1);
+	int i =0;
+
+	while( i < fileNameSize){
+		file.arr[i] = startPacket[currentI+3+i];
+		i++;
+	}
+	printf("FILE NAME IS IS %s \n",file.arr);
 }
 
 
 
 void validateStartPack(int fd){
-	unsigned char c, flag;
-	unsigned char readchar[30];
+//if ( p != (tmp = realloc(p, required_size)) )
+//	memcpy(tmp, p = tmp, required_size);
+ 	StartPack sp;
+  sp.size=50;
+	sp.arr=malloc(sp.size);
+
+
 	int res=-1;
+  int counter=0;
 
-	int temp = 0;
-	while (temp == 0) {
-		res += read(fd, &c, 1);
-		printf("0x%02x\n", c);
+   /*while(counter<26)
+	 {
+			res = read(fd,&readchar[counter],1);
+			if(res==-1){
+				printf("ERROR READING: QUITTING\n");
+			}
+			counter++;
+	 }*/
+	 int first7E = FALSE;
+	 while(counter<40)
+	 {
+	 	res = read(fd,&sp.arr[counter],1);
 
-		if (res == 1)
-			flag = c;
-		if (c == flag && res > 1)
-			temp = 1;
+		if(res==-1){
+			printf("ERROR READING: QUITTING\n");
+		}
+	// 	printf("CURRENT CHARACTER:0x%02x\n",(unsigned char)readchar[counter]);
 
-		readchar[res - 1] = c;
+
+	 	if(first7E==TRUE){
+	 		if(sp.arr[counter]==0x7E){
+	 			printf("FOUND 2ND 7E %d\n",counter);
+					sp.size=counter+1;
+	 			  sp.arr = realloc(sp.arr,sp.size);
+					printf("SIZEOF sp.arr AFTER REALLOC %d\n",sp.size);
+	 			break;
+	 		}
+	 	}
+
+	 	if(sp.arr[counter]==0x7E){
+	 			first7E=TRUE;
+	 	}
+			counter++;
+
 	}
 
-	// while(res==-1)
-		// res = read(fd,&c,1);   /* returns after 1 chars have been input */
 
-	printf("THIS IS START PACK HEADER :");
-	printf("0x%02x\n",readchar[0]);
-	//printArray(readchar,4);
+		printArray(sp.arr,sp.size);
 
-	printf("END OF START PACK HEADER READ:");
-	ResponseArray response =readInfPackHeader(fd,readchar);
-	//read first 4 bytes to readchar, send readchar to readInfpacketHeader
+
+	ResponseArray response =readInfPackHeader(fd,sp.arr);
+	//read first 4 bytes to sp.arr, send sp.arr to readInfpacketHeader
 	printf("reading the response that I received from readInfPackHeader\n");
 	printArray(response.arr,4);
-	printf("END OF RESPONSE READ:");
+	printf("END OF RESPONSE READ2323:\n");
 
-    if(response.arr[0]==ERR2)
-    {
+	if(response.arr[0]==ERR2)
+	{
 		printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
 		readStart=FALSE;
 		return;
 	}
 
-    switch(response.arr[2])
+	switch(sp.arr[2])
 	{
 		case 0x00:
 		printf("Validated Starter Packet Header, gotta break it down now\n");
-		//ok this is the start  packet so let's separate header  from the actual info
-		//readStartPacketInfo(pr);
+		readStartPacketInfo(sp.arr);
 		//if no errors send RR0 ->START PACK Reading successful, ready to begin reading actual file
-		StartPack startPack = destuffPack(fd, readchar, strlen(readchar)-4);
-		readStartPacketInfo(startPack.arr);
-		
-		
+		//StartPack startPack = destuffPack(fd, sp.arr, strlen(sp.arr)-4);
 		writeBytes(fd,response.arr);
 		readStart=TRUE;
 		break;
@@ -382,7 +423,7 @@ void validateStartPack(int fd){
 		writeBytes(fd,response.arr);
 		readStart=FALSE;
 		break;
-	}
+	 }
 }
 
 void llread(int fd)
@@ -471,7 +512,7 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
     newtio.c_cc[VMIN]     = 1;   /* blocking read until 1 chars received */
 
 
@@ -492,7 +533,7 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 	//llopen(fd,0);
-	llread(fd);
+		llread(fd);
 
 
     sleep(2);
