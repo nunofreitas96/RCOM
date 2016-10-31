@@ -9,41 +9,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-
-#define BAUDRATE B9600
-#define _POSIX_SOURCE 1 /* POSIX compliant source */
-#define FALSE 0
-#define TRUE 1
-#define ERR 0x36
-#define ERR2 0x35
+#include "utils.h"
 
 
-int status = TRUE;
-volatile int STOP=FALSE;
-volatile int readFile=FALSE;
-volatile int readStart = FALSE;
-volatile int packetValidated=FALSE;
-char currC1= 0x00;
-//TODO retirar por problemas de memória
 
-typedef struct{
-	char arr[5];
-} ResponseArray;
-
-typedef struct{
-	char* arr;
-	int size;
-} DataPack;
-
-typedef struct{
-	char* arr;
-	int namelength;
-	int fileSize;
-} FileData;
-
-
-FileData file;
-FILE *fp;
 //Funções GUIA1
 void writeBytes(int fd, char* message){
 
@@ -240,7 +209,7 @@ DataPack destuffPack(DataPack todestuff)
 		return makeErrorPack();
 	}
 
-	dataPacket.size=j;
+  dataPacket.size=j;
   dataPacket.arr=dbuf;
 
 	if(validateBCC2(dataPacket,(unsigned char)todestuff.arr[todestuff.size-2])==-1){
@@ -252,13 +221,7 @@ DataPack destuffPack(DataPack todestuff)
 	return dataPacket;
 }
 
-void printArray(char* arr,size_t length){
 
-	int index;
-	for( index = 0; index < length; index++){
-			printf( "0x%X\n", (unsigned char)arr[index] );
-	}
-}
 
 ResponseArray readInfPackHeader(int fd, char* buf){
 
@@ -267,8 +230,8 @@ ResponseArray readInfPackHeader(int fd, char* buf){
 	char c1alt;
 	char REJ[5]={0x7E,0x03,0x01,0x03^0x01,0x7E};
 	char restartERR2[5]={ERR2,ERR2,ERR2,ERR2,ERR2};
-
-
+	printf("PRINTING JUST THE HEADER\n");
+	printArray(buf,4);
 	//Verifying starting flag
 	if(buf[0] != 0x7E){
 		printf("first byte isn't flag error \n");
@@ -382,7 +345,8 @@ DataPack getPacket(int fd,int wantedsize){
 	while(counter<wantedsize)
 	{
 		res = read(fd,&sp.arr[counter],1);
-
+		if(counter <5)
+			printf("0x%02x\n",sp.arr[counter]);
 		if(res==-1)
 		{
 			printf("ERROR READING: QUITTING\n");
@@ -408,6 +372,7 @@ DataPack getPacket(int fd,int wantedsize){
 		}
 		counter++;
 	}
+
 	return sp;
 }
 
@@ -498,12 +463,14 @@ void llread(int fd)
 				DataPack filepacket;
 				while(packetValidated==FALSE)
 				{
-					filepacket=getPacket(fd,900);
+					filepacket=getPacket(fd,PACKET_SIZE+500);
 					//read first 4 bytes to readchar, send readchar to readInfpacketHeader
 					ResponseArray response =readInfPackHeader(fd,filepacket.arr);
+
 					if(response.arr[0]==ERR2)
 					{
 					  printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
+					  SizeRead=0;
 					  readStart=FALSE;
 					  break;
 				    }
@@ -542,20 +509,23 @@ void llread(int fd)
 							continue;
 					}
 				}				
+				
+
 				if(readStart==FALSE){
-					SizeRead=0;
+					printf("starting from beginning\n");
 					break;
 				}
+				
 				SizeRead+=filepacket.size;
 				writeFileInfo(filepacket);
 				packetValidated=FALSE;
 				if(SizeRead>=filepacket.size)
 					readFile=TRUE;
 			}
-			
+			printf("readStart %d \n",readStart);
+			printf("readFile %d \n",readFile);
 		}
-		if(readFile==TRUE)
-			break;
+		
 	}
 	fclose(fp);
 
