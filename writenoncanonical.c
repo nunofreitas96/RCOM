@@ -1,5 +1,3 @@
-/*Non-Canonical Input Processing*/
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -15,18 +13,46 @@
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
+
 #define FALSE 0
 #define TRUE 1
-
+#define PACKET_SIZE 512
 #define FLAG 0x7E
 
-char C1 = 0x00;
+int RR_RECEIVED = FALSE;
+int REJ_RECEIVED = FALSE;
+int TIMEOUT = FALSE;
 
-FILE *fp;
-
+unsigned char C1 = 0x40;
 volatile int STOP=FALSE;
 
+FILE *fp;
 int flag=0, conta=1;
+
+/*int readREJ(int fd)
+{
+	unsigned char C = 0x01;
+	int k = readSupervisionPacket(C,fd);
+	if (k == 0)
+	{
+		REJ_RECEIVED = TRUE;
+		printf("REJ received alright\n");
+	}
+	return k;
+}
+
+int readRR(int fd)
+{
+	unsigned char C = 0x05;
+	int k = readSupervisionPacket(C,fd);
+	if (k == 0)
+	{
+		RR_RECEIVED = TRUE;
+		printf("RR received alright\n");
+	}
+	return k;
+}*/
+
 
 void switchC1()
 {
@@ -34,24 +60,81 @@ void switchC1()
 		C1 = 0x40;
 	else
 		C1 = 0x00;
-	return ;
 }
+
+void resetRRRejFlags()
+{
+	RR_RECEIVED = FALSE;
+	REJ_RECEIVED = FALSE;
+}
+
+void endOfLL()
+{
+	conta = 0;
+	STOP = FALSE;
+	flag = 0;
+}
+
 void atende()
 {
-	printf("alarme # %d\n", conta);
+	printf("alarme #%d\n", conta);
 	flag=1;
 	conta++;
+}
 
+int readSupervisionPacket(unsigned char C, int fd)
+{
+	char buf[1];
+	char sup[5] = {FLAG, 0x03, C, 0x03^C, 0x7E};
+	int res;
+	int counter = 0;
+	int errorflag =0;
+
+	while (STOP==FALSE && counter < 5)
+	{
+		read(fd,buf,1);
+
+		switch(counter)
+		{
+			case 0:
+			if(buf[0]!=sup[0])
+				errorflag=-1;
+			break;
+			case 1:
+			if(buf[0]!=sup[1])
+				errorflag=-1;
+			break;
+			case 2:
+			if(buf[0]!=sup[2])
+				errorflag=-1;
+			break;
+			case 3:
+			if(buf[0] != sup[3])
+				errorflag=-1;
+			break;
+			case 4:
+			if(buf[0]!=sup[4])
+				errorflag=-1;
+			break;
+		};
+		counter++;
+
+		if (counter==5 && errorflag ==0)
+		{
+			STOP=TRUE;
+			return 0;
+		}
+	}
+	return -1;
 }
 
 int writeBytes(int fd)
 {
-	char ua[5] = {0x7E,0x03,0x03,0x01,0x7E};
-	int size=strlen(ua);
+	unsigned char ua[5] = {0x7E,0x03,0x07,0x01,0x7E};
 	int res;
 
 	res = write(fd,ua,5);
-	printf("%d bytes written\n", res);
+	printf("writeBytes: %d bytes written\n", res);
 	return res;
 }
 
@@ -81,7 +164,85 @@ void writeSet(int fd)
 		printf("?????\n");
 		break;
 	}
-	printf("%d bytes written\n", res);
+
+	printf("writeSet: %d bytes written\n", res);
+}
+
+int sendReadDISC(int fd,int toRead)
+{
+	if (toRead == TRUE)
+	{
+		unsigned char C = 0x0B;
+		int k = readSupervisionPacket(C,fd);
+		return k;
+	}
+
+	unsigned char disc[5];
+	unsigned char A=0x03;
+	unsigned char C = 0x0B;
+	unsigned char BCC1 = A^C;
+	disc[0] = FLAG;
+	disc[1] = A;
+	disc[2] = C;
+	disc[3] = BCC1;
+	disc[4] = FLAG;
+
+	write(fd,disc,5);
+	return 0;
+}
+
+int readUa(int fd)
+{
+	unsigned char C = 0x07;
+	int k = readSupervisionPacket(C,fd);
+	return k;
+}
+void printArray(char* arr,size_t length){
+
+	int index;
+	for( index = 0; index < length; index++){
+			printf( "0x%X\n", (unsigned char)arr[index] );
+	}
+}
+
+int detectRRorREJ(int fd)
+{
+	char buf[5];
+	read(fd,buf,5);
+	printArray(buf,5);
+	//Verifying starting flag
+	if(buf[0] != 0x7E){
+		printf("first byte isn't flag error \n");
+		return -1;
+	}
+
+	//Verifying A
+	if(buf[1] != 0x03){
+		printf("read error in (A) \n");
+		return -1;
+	}
+
+	//Verifying C1
+	if(buf[2] == 0x01 ){
+		if((buf[1]^buf[2]) != buf[3]){
+				printf("A^C is not equal to BCC1 error");
+
+		}
+		printf("Received REJ with no errors\n",buf[2]);
+		REJ_RECEIVED=TRUE;
+		return 1;
+	}
+
+	if(buf[2] == 0x00 || buf[2]==0x40){
+		if((buf[1]^buf[2]) != buf[3]){
+				printf("A^C is not equal to BCC1 error");
+		}
+		printf("Received RR(%02x) with no errors\n",buf[2]);
+		RR_RECEIVED=TRUE;
+		switchC1();
+		return 0;
+	}
+	return -1;
 }
 
 int sendInfoFile(int fd, unsigned char *buf, int size) //Handles the process of sending portions of the file to receiver
@@ -112,9 +273,9 @@ int sendInfoFile(int fd, unsigned char *buf, int size) //Handles the process of 
 	BCC1 = dataPacket[1]^C1;
 	dataPacket[3] = BCC1;
 
-	j = 1;
-	k = 0;
-	for (i = 0; i < startBufSize;i++)
+	j = 5;
+	k = 4;
+	for (i = 0; i < size;i++)
 	{
 		if (buf[i] == 0x7E)
 		{
@@ -142,283 +303,93 @@ int sendInfoFile(int fd, unsigned char *buf, int size) //Handles the process of 
 	dataPacket[newSize-2] = BCC2;
 	dataPacket[newSize-1] = FLAG;
 
-	i = 0;
-	for(; i < newSize;i++)
-	{
-		printf("dataPacket[%d] = 0x%02X\n",i,(unsigned char)dataPacket[i]);
-	}
-
 	res = write(fd,dataPacket,newSize);
-	switchC1();
+	if (res == 0 || res == -1)
+	{
+		printf("sendInfoFile() - %d bytes written.\n",res);
+		return res;
+	}
 	return res;
 }
 
-int getDataPacket(int fd) //Handles the process of dividing file into 512 bytes portions
+int getDataPacket(int fd) //Handles the process of dividing file into PACKET_SIZE bytes portions
 {
 	int i = 0, sizeDataPacket = 0;
-	fp = fopen("pinguim.gif","rb");
+	fp = fopen("pinguim.gif","rb"); //TODO: se quisermos receber nome de ficheiro ver isto
 	int bytesRead = 0,res,read = 0;
 
-	unsigned char *dataPacket = (unsigned char *)malloc(512);
+	unsigned char *dataPacket = (unsigned char *)malloc(PACKET_SIZE);
 
-	//READ 512 BYTES "AT A TIME"
-	while ((bytesRead = fread(dataPacket, sizeof(unsigned char), 512, fp)) > 0)
+	//READ PACKET_SIZE BYTES "AT A TIME"
+	while ((bytesRead = fread(dataPacket, sizeof(unsigned char), PACKET_SIZE, fp)) > 0)
 	{
-		read += bytesRead;
-		sendInfoFile(fd,dataPacket,bytesRead);
+		while (conta < 4)
+		{
+			res = sendInfoFile(fd,dataPacket,bytesRead);
+			TIMEOUT = FALSE;
+			alarm(3);
 
-		//make dataPacket ready for next iteration
-		dataPacket = memset(dataPacket, 0, 512);
+			if (res == -1)
+			{
+				while (!flag){}
+				TIMEOUT = TRUE;
+				continue;
+			}
+			else if (res >= 0)
+			{
+				while(!flag && (RR_RECEIVED == FALSE && REJ_RECEIVED == FALSE))
+				{
+					printf("inside wait while RR_RECEIVED:%d REJ_RECEIVED:%d\n",RR_RECEIVED,REJ_RECEIVED	);
+					detectRRorREJ(fd);
+				}
+			}
+
+			if (RR_RECEIVED)
+			{
+				conta = 0;
+				alarm(0);
+				printf("Inside RR if\n");
+				resetRRRejFlags();
+				break;
+			}
+			if (REJ_RECEIVED)
+			{
+				conta++;
+				alarm(0);
+				printf("Inside REJ if\n");
+				resetRRRejFlags();
+				continue;
+			}
+			printf("No RR or REJ\n");
+			TIMEOUT = TRUE;
+			resetRRRejFlags();
+		}
+
+		dataPacket = memset(dataPacket, 0, PACKET_SIZE);
+		read += bytesRead;
 	}
 	fclose(fp);
+	STOP = TRUE;
 	return read;
 }
 
-/*
- *This fucntion will read or send Disconnect
-*/
-int sendReadDISC(int fd,int toRead)
-{
-	int counter = 0;
-	int errorflag =0;
-	char disc[5];
-	char buf[5];
-
-	char A=0x03;
-	char C = 0x0B;
-	char BCC1 = A^C;
-
-	disc[0] = FLAG;
-	disc[1] = A;
-	disc[2] = C;
-	disc[3] = BCC1;
-	disc[4] = FLAG;
-
-	int res = 0;
-
-	if (toRead == TRUE)
-	{
-		while (STOP==FALSE && counter < 5)
-		{
-			res = read(fd,buf,1);
-
-			switch(counter)
-			{
-				case 0:
-				if(buf[0]!=disc[0])
-					errorflag=-1;
-				break;
-				case 1:
-				if(buf[0]!=disc[1])
-					errorflag=-1;
-				break;
-				case 2:
-				if(buf[0]!=disc[2])
-					errorflag=-1;
-				break;
-				case 3:
-				if(buf[0]!=disc[3])
-					errorflag=-1;
-				break;
-				case 4:
-				if(buf[0]!=disc[4])
-					errorflag=-1;
-				break;
-			};
-			counter++;
-
-			if (counter== 5 && errorflag == 0)
-			{
-				STOP=TRUE;
-				return 0;
-			}
-			else if (counter == 5 && errorflag != 0)
-				return -1;
-		}
-	}
-	else
-	{
-		res = write(fd,disc,5);
-		return 0;
-	}
-}
-
-int readREJ(int fd)
-{
-	int counter = 0;
-	int errorflag =0;
-	char rej[5];
-	char buf[5];
-
-	char A=0x03;
-	char C = 0x01;
-	char BCC1 = A^C;
-
-	rej[0] = FLAG;
-	rej[1] = A;
-	rej[2] = C;
-	rej[3] = BCC1;
-	rej[4] = FLAG;
-
-	int res = 0;
-
-	while (STOP==FALSE && counter < 5)
-	{
-		res = read(fd,buf,1);
-
-		switch(counter)
-		{
-			case 0:
-			if(buf[0]!=rej[0])
-				errorflag=-1;
-			break;
-			case 1:
-			if(buf[0]!=rej[1])
-				errorflag=-1;
-			break;
-			case 2:
-			if(buf[0]!=rej[2])
-				errorflag=-1;
-			break;
-			case 3:
-			if(buf[0]!=rej[3])
-				errorflag=-1;
-			break;
-			case 4:
-			if(buf[0]!=rej[4])
-				errorflag=-1;
-			break;
-		};
-		counter++;
-
-		if (counter==5 && errorflag ==0)
-		{
-			STOP=TRUE;
-			return 0;
-		}
-	}
-	return -1;
-}
-
-int ReadRR(int fd)
-{
-	int counter = 0;
-	int errorflag =0;
-	char rr[5];
-	char buf[5];
-
-	char A=0x03;
-	char C = 0x05;
-	char BCC1 = A^C;
-
-	rr[0] = FLAG;
-	rr[1] = A;
-	rr[2] = C;
-	rr[3] = BCC1;
-	rr[4] = FLAG;
-
-	int res = 0;
-
-	while (STOP==FALSE && counter < 5)
-	{
-		res = read(fd,buf,1);
-
-		switch(counter)
-		{
-			case 0:
-			if(buf[0]!=rr[0])
-				errorflag=-1;
-			break;
-			case 1:
-			if(buf[0]!=rr[1])
-				errorflag=-1;
-			break;
-			case 2:
-			if(buf[0]!=rr[2])
-				errorflag=-1;
-			break;
-			case 3:
-			if(buf[0]!=rr[3])
-				errorflag=-1;
-			break;
-			case 4:
-			if(buf[0]!=rr[4])
-				errorflag=-1;
-			break;
-		};
-		counter++;
-
-		if (counter==5 && errorflag ==0)
-		{
-			STOP=TRUE;
-			return 0;
-		}
-	}
-	return -1;
-}
-
-int readUa(int fd)
-{
-	char buf[1];
-	char ua[5] = {0x7E,0x03,0x03,0x01,0x7E};
-	int res;
-	int counter = 0;
-	int errorflag =0;
-
-	while (STOP==FALSE && counter < 5)
-	{
-		res = read(fd,buf,1);
-
-		switch(counter)
-		{
-			case 0:
-			if(buf[0]!=ua[0])
-				errorflag=-1;
-			break;
-			case 1:
-			if(buf[0]!=ua[1])
-				errorflag=-1;
-			break;
-			case 2:
-			if(buf[0]!=ua[2])
-				errorflag=-1;
-			break;
-			case 3:
-			if(buf[0]!=ua[3])
-				errorflag=-1;
-			break;
-			case 4:
-			if(buf[0]!=ua[4])
-				errorflag=-1;
-			break;
-		};
-		counter++;
-
-		if (counter==5 && errorflag ==0)
-		{
-			STOP=TRUE;
-			return 0;
-		}
-	}
-	return -1;
-}
-
-char *buildStartPacket(int fd)
+unsigned char *buildStartPacket(int fd)
 {
 	int fsize, i=0, j=0;
-	char *fileName = "pinguim.gif";
+	char *fileName = "pinguim.gif"; //TODO: se quisermos receber nome de ficheiro ver isto
 	fseek(fp,0,SEEK_END);
 	fsize = ftell(fp);
 	fseek(fp,0,SEEK_SET);
 
-	char A = 0x03;
-	char BCC1 = A^C1;
-	char BCC2;
+	unsigned char A = 0x03;
+	unsigned char C = 0x00;
+	unsigned char BCC1 = A^C;
+	unsigned char BCC2;
 
 	fclose(fp);
 	int startBufSize = 9+strlen(fileName);
 
-	char *startBuf = (char *)malloc(startBufSize);
+	unsigned char *startBuf = (char *)malloc(startBufSize);
 
 	startBuf[0] = 0x02;
 	startBuf[1] = 0x00;
@@ -427,17 +398,12 @@ char *buildStartPacket(int fd)
 	*intloc=fsize;
 	startBuf[7] = 0x01;
 	startBuf[8] = strlen(fileName);
-	startBuf[9] = 'p';
-	startBuf[10] = 'i';
-	startBuf[11] = 'n';
-	startBuf[12] = 'g';
-	startBuf[13] = 'u';
-	startBuf[14] = 'i';
-	startBuf[15] = 'm';
-	startBuf[16] = '.';
-	startBuf[17] = 'g';
-	startBuf[18] = 'i';
-	startBuf[19] = 'f';
+
+	//INSERTS FILE NAME IN ARRAY
+	for(i = 0; i < strlen(fileName);i++)
+	{
+		startBuf[i+9] = fileName[i];
+	}
 
 	//COMPUTE FINAL SIZE OF DATA ARRAY
 	int sizeFinal = startBufSize+6;
@@ -453,17 +419,37 @@ char *buildStartPacket(int fd)
 	{
 		BCC2 = BCC2^startBuf[i];
 	}
+	//printf("BCC2: %02X\n\n",BCC2);
 
-	//STUFFING OF DATA PACKAGE
-	char *dataPackage = (char *)malloc(sizeFinal);
+	unsigned char *dataPackage;
+	if (BCC2 == 0x7E)
+	{
+		dataPackage = (unsigned char *)malloc(sizeFinal+1);
+		dataPackage[sizeFinal-3] = 0x7D;
+		dataPackage[sizeFinal-2] = 0x5E;
+	}
+
+	if (BCC2 == 0x7D)
+	{
+		dataPackage = (unsigned char *)malloc(sizeFinal+1);
+		dataPackage[sizeFinal-3] = 0x7D;
+		dataPackage[sizeFinal-2] = 0x5D;
+	}
+
+	if (BCC2 != 0x7D && BCC2 != 0x7E)
+	{
+		 dataPackage = (unsigned char *)malloc(sizeFinal);
+		 dataPackage[sizeFinal-2] = BCC2;
+	}
+
 	dataPackage[0] = FLAG;
 	dataPackage[1] = A;
-	dataPackage[2] = C1;
-	BCC1 = A^C1;
+	dataPackage[2] = 0x00;
+	BCC1 = A^dataPackage[2];
 	dataPackage[3] = BCC1;
 
-	j = 1;
-	int k=0;
+	j = 5;
+	int k=4;
 	for (i = 0; i < startBufSize;i++)
 	{
 		if (startBuf[i] == 0x7E)
@@ -488,59 +474,105 @@ char *buildStartPacket(int fd)
 		j++;
 		k++;
 	}
-
-	dataPackage[sizeFinal-2] = BCC2;
 	dataPackage[sizeFinal-1] = FLAG;
+
+	/*i = 0;
+	for (; i < sizeFinal;i++)
+	{
+		printf("dataPackage[%d] = 0x%02X\n",i,dataPackage[i]);
+	}*/
 
 	int res;
 	res = write(fd, dataPackage, sizeFinal);
-
-	/*i = 0;
-	for(;i < sizeFinal; i++)
-	{
-		printf("dataPackage[%d] = 0x%02X\n",i,(unsigned char)dataPackage[i]);
-	}*/
 
 	printf("%d bytes written\n",res);
 	return 0;
 }
 
-void cycle(int fd)
+int llwrite(int fd)
 {
-	int fsize;
-	fp = fopen("pinguim.gif","rb");
-	fseek(fp,0,SEEK_END);
-	fsize = ftell(fp);
-	fseek(fp,0,SEEK_SET);
-	fclose(fp);
-
-	//llopen(); //SET AND UA PLACE
-
-	/*while( < )
-	{
-
-	}*/
+	int res;
+	buildStartPacket(fd);
+	res = getDataPacket(fd);
+	endOfLL();
+	return res;
 }
 
 int llopen(int fd)
 {
+
 	while(conta < 4)
 	{
 		writeSet(fd);
 		alarm(3);
 
 		while(!flag && STOP == FALSE)
-			{	readUa(fd);	}
-
+		{
+			readUa(fd);
+		}
 		if(STOP==TRUE)
 		{
 			alarm(0);
+			endOfLL();
 			return 0;
 		}
 		else
 			flag=0;
 	}
 	return -1;
+}
+
+int llclose(int fd)
+{
+	while(conta < 4)
+	{
+		sendReadDISC(fd,FALSE);
+		alarm(3);
+
+		while(!flag && STOP == FALSE)
+		{
+			sendReadDISC(fd,TRUE);
+		}
+
+		if(STOP==TRUE)
+		{
+			alarm(0);
+			endOfLL();
+			return 0;
+		}
+		else
+			flag=0;
+	}
+	writeBytes(fd);
+	endOfLL();
+	return -1;
+}
+
+int cycle(int fd)
+{
+	int res;
+	res = llopen(fd);
+	if (res == -1)
+	{
+		printf("Leaving application. llopen() failed\n");
+		return -1;
+	}
+	res = llwrite(fd);
+	if (res == -1)
+	{
+		printf("Leaving application. llwrite() failed\n");
+		return -1;
+	}
+
+	//uncomment this later
+	/*res = llclose(fd);
+	if (res == -1)
+	{
+		printf("Leaving application. llclose() failed\n");
+		return -1;
+	}*/
+
+	return 0;
 }
 
 int main(int argc, char** argv)
@@ -557,7 +589,8 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	fp = fopen("pinguim.gif","r");
+	fp = fopen("pinguim.gif","r"); //TODO: se quisermos receber nome de ficheiro ver isto
+
 	fd = open(argv[1], O_RDWR | O_NOCTTY );
 	if (fd <0)
 	{
@@ -586,12 +619,12 @@ int main(int argc, char** argv)
 		perror("tcsetattr");
 		exit(-1);
 	}
-
-	buildStartPacket(fd);
-	//getDataPacket(fd);
-	//cycle(fd);
-	//llwrite(fd);
+	cycle(fd);
 	//llopen(fd);
+	//buildStartPacket(fd);
+	//getDataPacket(fd);
+	//llwrite(fd);
+
 	if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
 		perror("tcsetattr");
 		exit(-1);
