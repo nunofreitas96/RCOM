@@ -158,27 +158,55 @@ void llopen(int fd, int type){
     writeBytes(fd,ua);
 }
 
+DataPack makeErrorPack()
+{
+	DataPack errpack;
+	errpack.size=1;
+	errpack.arr=malloc(errpack.size);
+	errpack.arr[0]=-1;
+	return errpack;
+}
+
+int validateBCC2(DataPack dataPacket,unsigned char BCC2){
+	int i;
+	unsigned char makeBCC2;
+	makeBCC2 = dataPacket.arr[0]^dataPacket.arr[1];
+
+	for (i = 2; i < dataPacket.size;i++)
+	{
+		makeBCC2 = makeBCC2^dataPacket.arr[i];
+	}
+
+	printf("makeBCC2:0x%02x BCC2:0x%02x\n",makeBCC2,BCC2);
+	if(BCC2==makeBCC2)
+		return 0;
+	return -1;
+}
+
 DataPack destuffPack(DataPack todestuff)
 {
 	printf("BEFORE DESTUFF size:%d  \n",todestuff.size);
 	//TODO make this more accessible to other functions
-	char* dbuf=malloc(todestuff.size);
-	DataPack startPack;
+	char* dbuf=malloc(todestuff.size-6);
+	DataPack dataPacket;
 	// counter for finding all bytes to destuff, starts on 4 because from 0 to 3 is the header
 	//j is a counter to put bytes on dbuf;
-	int i;
-	for(i=0;i<4;i++){
-		dbuf[i]=todestuff.arr[i];
-	}
+	int i=4;
 
-	int j =4;
+	int j=0;
 
 	//Finding content that needs destuffing
-	while(i<todestuff.size)
+	while(i<todestuff.size-2)
 	{
 		printf(" destuff[i]= %x , i:%d j:%d\n",todestuff.arr[i],i,j);
+
+		if(todestuff.arr[i] == 0x7E){
+					printf("Stuffing failed, found 0x7E before final position of packet\n");
+					return makeErrorPack();
+		}
+
 		//no flags
-		if(todestuff.arr[i] != 0x7E && todestuff.arr[i] != 0x7D){
+		if(todestuff.arr[i] != 0x7D){
 
 		 dbuf[j] = todestuff.arr[i];
 		 i++;
@@ -186,24 +214,12 @@ DataPack destuffPack(DataPack todestuff)
 		 continue;
 		}
 
-
-		if(todestuff.arr[i] == 0x7E){
-			if(i!=(todestuff.size-1))
-					//return err;
-			 dbuf[j] = todestuff.arr[i];
-			break;
-		}
-
 		if(todestuff.arr[i] == 0x7D){
+
 			if(todestuff.arr[i+1] == 0x5E){
 				dbuf[j] = 0x7E;
 				i = i+2;
 				j++;
-				if(i >= todestuff.size)
-				{
-					 printf("index out of bound");
-					//return ERR;
-				}
 				continue;
 		 	}
 
@@ -211,26 +227,29 @@ DataPack destuffPack(DataPack todestuff)
 				dbuf[j] = 0x7D;
 				i = i+2;
 				j++;
-					if(i >= todestuff.size)
-					{
-					 printf("index out of bound");
-					 //return ERR;
-				  }
 				continue;
 			}
-
-			//return err;
+			printf("Stuffing failed, found unstuffed 0x7D\n");
+			return makeErrorPack();
 		}
 
 	}
 
-	startPack.size=j+1;
-  startPack.arr=dbuf;
-	printf("AFTER DESTUFF Size:%d \n",startPack.size);
+	if(todestuff.arr[todestuff.size-1]!=0x7E){
+		printf("Invalid Packet, found 0x%02x at final position of packet, should be 0x7E\n",(unsigned char)todestuff.arr[todestuff.size-1]);
+		return makeErrorPack();
+	}
 
+	dataPacket.size=j;
+  dataPacket.arr=dbuf;
 
+	if(validateBCC2(dataPacket,(unsigned char)todestuff.arr[todestuff.size-2])==-1){
+		printf("BCC2 doesn't match with BCC2 of received contents, please resend Packet\n");
+		return makeErrorPack();
+	}
 
-	return startPack;
+	printf("AFTER DESTUFF Size:%d \n",dataPacket.size);
+	return dataPacket;
 }
 
 void printArray(char* arr,size_t length){
@@ -306,15 +325,15 @@ ResponseArray readStartPacketInfo(char * startPacket, ResponseArray res)
 {
 	char tempI[5];
 	char temp[50];
-	int offset = 4;
+
 	char REJ[5]={0x7E,0x03,0x01,0x03^0x01,0x7E};
 
-	tempI[0]=startPacket[offset+6];
-	tempI[1]=startPacket[offset+5];
-	tempI[2]=startPacket[offset+4];
-	tempI[3]=startPacket[offset+3];
+	tempI[0]=startPacket[6];
+	tempI[1]=startPacket[5];
+	tempI[2]=startPacket[4];
+	tempI[3]=startPacket[3];
 
-	int currentI=offset+6;
+	int currentI=6;
 	sprintf(temp,"%02x%02x%02x%02x",(unsigned char)tempI[0],(unsigned char)tempI[1],(unsigned char)tempI[2],(unsigned char)tempI[3]);
 	printf("%s\n",temp);
 	//output is 00002ad8
@@ -346,7 +365,7 @@ ResponseArray readStartPacketInfo(char * startPacket, ResponseArray res)
 
 
 
-	//verify BCC2
+
 	printf("FILE NAME IS IS %s \n",file.arr);
 
 	return res;
@@ -397,8 +416,6 @@ void validateStartPack(int fd){
 
 
 	ResponseArray response =readInfPackHeader(fd,sp.arr);
-	//read first 4 bytes to sp.arr, send sp.arr to readInfpacketHeader
-
 
 	if(response.arr[0]==ERR2)
 	{
@@ -418,12 +435,12 @@ void validateStartPack(int fd){
 	{
 		case 0x00:
 		printf("Validated Starter Packet Header, gotta break it down now\n");
-		//DataPack startPack = destuffPack(fd, sp.arr, strlen(sp.arr)-4);
-
+		sp = destuffPack(sp);
+		if(sp.arr[0]==-1){
+			readStart=FALSE;
+			return;
+		}
 		response = readStartPacketInfo(sp.arr,response);
-		printf("reading the response that I received from readStartPAcketInfo\n");
-		printArray(response.arr,5);
-		printf("END OF RESPONSE READ2323:\n");
 		writeBytes(fd,response.arr);
 		if(response.arr[2]==0x01){
 			readStart=FALSE;
@@ -475,7 +492,7 @@ void llread(int fd)
 		{
 
 			//reading actual file
-		 	 while (readStart==TRUE)
+		 	 while (readFile==TRUE)
 			{
 				//read first 4 bytes to readchar, send readchar to readInfpacketHeader
 				ResponseArray response =readInfPackHeader(fd,readchar);
@@ -567,25 +584,27 @@ int main(int argc, char** argv)
     }
 
     printf("New termios structure set\n");
-	//llopen(fd,0);
-		//llread(fd);
+  	//llopen(fd,0);
+		llread(fd);
 		/*
 		//testing code for destuffing functions
 		DataPack testpack;
-		testpack.size=10;
+		testpack.size=8;
 		testpack.arr=malloc(testpack.size);
 		testpack.arr[0]=0x00;
 		testpack.arr[1]=0x00;
 		testpack.arr[2]=0x00;
 		testpack.arr[3]=0x00;
-		testpack.arr[4]=0x40;
-		testpack.arr[5]=0x7D;
-		testpack.arr[6]=0x5D;
-		testpack.arr[7]=0x7D;
-		testpack.arr[8]=0x5e	;
-		testpack.arr[9]=0x7E;
+		testpack.arr[4]=0x03;
+		testpack.arr[5]=0x01;
+		testpack.arr[6]=0x02;
+		testpack.arr[7]=0x7E;
+
 		printArray(testpack.arr,testpack.size);
 		testpack=destuffPack(testpack);
+
+		if(testpack.arr[0]==-1)
+		exit(-1);
 		printArray(testpack.arr,testpack.size);
 		//end of testing code for destuffing functions
 		*/
