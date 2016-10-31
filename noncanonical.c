@@ -230,10 +230,10 @@ ResponseArray readInfPackHeader(int fd, char* buf){
 	char c1alt;
 	char REJ[5]={0x7E,0x03,0x01,0x03^0x01,0x7E};
 	char restartERR2[5]={ERR2,ERR2,ERR2,ERR2,ERR2};
-	printf("PRINTING JUST THE HEADER\n");
-	printArray(buf,4);
+
 	//Verifying starting flag
 	if(buf[0] != 0x7E){
+
 		printf("first byte isn't flag error \n");
 		memcpy(response.arr,REJ,5);
 		return response;
@@ -263,7 +263,7 @@ ResponseArray readInfPackHeader(int fd, char* buf){
 	//Verifying BCC1
 	if((buf[1]^buf[2]) != buf[3]){
 		printf("A^C is not equal to BCC1 error");
-	  memcpy(response.arr,REJ,5);
+		memcpy(response.arr,REJ,5);
 		return response;
 
 	}
@@ -345,8 +345,9 @@ DataPack getPacket(int fd,int wantedsize){
 	while(counter<wantedsize)
 	{
 		res = read(fd,&sp.arr[counter],1);
-		if(counter <5)
-			printf("0x%02x\n",sp.arr[counter]);
+		if(counter<4){
+			printf("%d %02x\n",counter,sp.arr[counter]);
+		}
 		if(res==-1)
 		{
 			printf("ERROR READING: QUITTING\n");
@@ -357,7 +358,7 @@ DataPack getPacket(int fd,int wantedsize){
 
 		if(first7E==TRUE){
 			if(sp.arr[counter]==0x7E)
-			{
+			{ 	
 				printf("FOUND 2ND 7E %d\n",counter);
 				sp.size=counter+1;
 				sp.arr = realloc(sp.arr,sp.size);
@@ -379,8 +380,6 @@ DataPack getPacket(int fd,int wantedsize){
 void validateStartPack(int fd){
 
 	DataPack sp=getPacket(fd,50);
-
-	printArray(sp.arr,sp.size);
 
 
 	ResponseArray response =readInfPackHeader(fd,sp.arr);
@@ -419,7 +418,6 @@ void validateStartPack(int fd){
 
     default:
 		printf("Rejecting invalid Starter Packet, try again \n");
-		printArray(response.arr,5);
 		writeBytes(fd,response.arr);
 		readStart=FALSE;
 		break;
@@ -466,7 +464,8 @@ void llread(int fd)
 					filepacket=getPacket(fd,PACKET_SIZE+500);
 					//read first 4 bytes to readchar, send readchar to readInfpacketHeader
 					ResponseArray response =readInfPackHeader(fd,filepacket.arr);
-
+					printf("PRINTING JUST THE FIRST 4 BYTES OF PACKET\n");
+					printArray(filepacket.arr,4);
 					if(response.arr[0]==ERR2)
 					{
 					  printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
@@ -482,10 +481,10 @@ void llread(int fd)
 							filepacket = destuffPack(filepacket);
 							if(filepacket.arr[0]==-1){
 								packetValidated=FALSE;
+							     free(filepacket.arr);
 								continue;
 							}
 							printf("Sending RR0\n");
-							printArray(response.arr,5);
 							writeBytes(fd,response.arr);
 							packetValidated=TRUE;
 							break;
@@ -494,10 +493,10 @@ void llread(int fd)
 							filepacket = destuffPack(filepacket);
 							if(filepacket.arr[0]==-1){
 								packetValidated=FALSE;
+							    free(filepacket.arr);
 								continue;
 							}
 						    printf("Sending RR1\n");
-						    printArray(response.arr,5);
 							writeBytes(fd,response.arr);
 							packetValidated=TRUE;
 							break;
@@ -593,30 +592,8 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
  
-  	    llopen(fd,0);
-		llread(fd);
-		/*
-		//testing code for destuffing functions
-		DataPack testpack;
-		testpack.size=8;
-		testpack.arr=malloc(testpack.size);
-		testpack.arr[0]=0x00;
-		testpack.arr[1]=0x00;
-		testpack.arr[2]=0x00;
-		testpack.arr[3]=0x00;
-		testpack.arr[4]=0x03;
-		testpack.arr[5]=0x01;
-		testpack.arr[6]=0x02;
-		testpack.arr[7]=0x7E;
-
-		printArray(testpack.arr,testpack.size);
-		testpack=destuffPack(testpack);
-
-		if(testpack.arr[0]==-1)
-		exit(-1);
-		printArray(testpack.arr,testpack.size);
-		//end of testing code for destuffing functions
-		*/
+  	llopen(fd,0);
+	llread(fd);
 
     sleep(2);
     tcsetattr(fd,TCSANOW,&oldtio);
