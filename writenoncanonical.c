@@ -16,7 +16,7 @@
 
 #define FALSE 0
 #define TRUE 1
-#define PACKET_SIZE 512
+#define PACKET_SIZE 2048
 #define FLAG 0x7E
 
 int RR_RECEIVED = FALSE;
@@ -209,7 +209,7 @@ int detectRRorREJ(int fd)
 {
 	char buf[5];
 	read(fd,buf,5);
-	printArray(buf,5);
+	//printArray(buf,5);
 	//Verifying starting flag
 	if(buf[0] != 0x7E){
 		printf("first byte isn't flag error \n");
@@ -326,6 +326,7 @@ int getDataPacket(int fd) //Handles the process of dividing file into PACKET_SIZ
 		while (conta < 4)
 		{
 			res = sendInfoFile(fd,dataPacket,bytesRead);
+			printf("res: %d\n",res);
 			TIMEOUT = FALSE;
 			alarm(3);
 
@@ -335,12 +336,12 @@ int getDataPacket(int fd) //Handles the process of dividing file into PACKET_SIZ
 				TIMEOUT = TRUE;
 				continue;
 			}
-			else if (res >= 0)
+			else
 			{
 				while(!flag && (RR_RECEIVED == FALSE && REJ_RECEIVED == FALSE))
 				{
-					printf("inside wait while RR_RECEIVED:%d REJ_RECEIVED:%d\n",RR_RECEIVED,REJ_RECEIVED	);
 					detectRRorREJ(fd);
+					printf("inside wait while RR_RECEIVED:%d REJ_RECEIVED:%d\n",RR_RECEIVED,REJ_RECEIVED	);
 				}
 			}
 
@@ -550,18 +551,28 @@ int llclose(int fd)
 
 int cycle(int fd)
 {
-	int res;
-	res = llopen(fd);
-	if (res == -1)
+	int fsize, finish = 0,res;
+	fseek(fp,0,SEEK_END);
+	fsize = ftell(fp);
+	fseek(fp,0,SEEK_SET);
+
+	while (finish == 0)
 	{
-		printf("Leaving application. llopen() failed\n");
-		return -1;
-	}
-	res = llwrite(fd);
-	if (res == -1)
-	{
-		printf("Leaving application. llwrite() failed\n");
-		return -1;
+		printf("Starting llopen()\n");
+		res = llopen(fd);
+		if (res == -1)
+		{
+			printf("Leaving application. llopen() failed\n");
+			return -1;
+		}
+		res = llwrite(fd);
+		if (res < fsize)
+		{
+			printf("DFGSDFGDFGSDFG\n");
+			continue;
+		}
+		else
+			finish = 1;
 	}
 
 	//uncomment this later
