@@ -22,6 +22,8 @@ int status = TRUE;
 volatile int STOP=FALSE;
 volatile int readFile=FALSE;
 volatile int readStart = FALSE;
+volatile int packetValidated=FALSE;
+char currC1= 0x00;
 //TODO retirar por problemas de memória
 
 typedef struct{
@@ -40,7 +42,6 @@ typedef struct{
 } FileData;
 
 
-//char* file_name;
 FileData file;
 FILE *fp;
 //Funções GUIA1
@@ -84,7 +85,7 @@ char * readBytes(int fd){
 //FUNÇÕES GUIA 2
 char readSupervision(int fd, int counter){
 
-	char set[5]={0x7E,0x03,0x03,0x00,0x7E};
+	char set[5]={0x7E,0x03,0x03,0x03^0x03,0x7E};
 	char buf[1];
 	int res=0;
     	res = read(fd,buf,1);   /* returns after 1 chars have been input */
@@ -97,7 +98,7 @@ char readSupervision(int fd, int counter){
 	switch(counter){
 	case 0:
 		if(buf[0]==set[0]){
-			return 0x76;
+			return 0x7E;
 		}
 		return ERR;
 	case 1:
@@ -127,14 +128,14 @@ char readSupervision(int fd, int counter){
 
 
 void llopen(int fd, int type){
- char ua[5]={0x7E,0x03,0x03,0x01,0x7E};
+ char ua[5]={0x7E,0x03,0x07,0x03^0x07,0x7E};
  char readchar[2];
  int counter = 0;
  if(type==0){
 	 while (STOP==FALSE) {       /* loop for input */
 
 	  readchar[0]=readSupervision(fd,counter);
-	  printf("%c \n",readchar[0]);
+	  printf("0x%02x \n",(unsigned char)readchar[0]);
 	  readchar[1]='\0';
 
 
@@ -148,7 +149,7 @@ void llopen(int fd, int type){
 	  counter=-1;
 	  }
 
-	  if (counter==5){
+	  	if (counter==5){
 		 STOP=TRUE;
 	  }
 
@@ -198,8 +199,7 @@ DataPack destuffPack(DataPack todestuff)
 	//Finding content that needs destuffing
 	while(i<todestuff.size-2)
 	{
-		printf(" destuff[i]= %x , i:%d j:%d\n",todestuff.arr[i],i,j);
-
+		
 		if(todestuff.arr[i] == 0x7E){
 					printf("Stuffing failed, found 0x7E before final position of packet\n");
 					return makeErrorPack();
@@ -371,46 +371,49 @@ ResponseArray readStartPacketInfo(char * startPacket, ResponseArray res)
 	return res;
 }
 
-
-
-void validateStartPack(int fd){
-
- 	DataPack sp;
-  sp.size=50;
+DataPack getPacket(int fd,int wantedsize){
+	DataPack sp;
+	sp.size=wantedsize;
 	sp.arr=malloc(sp.size);
-
-
 	int res=-1;
-  int counter=0;
-  int first7E = FALSE;
+	int counter=0;
+	int first7E = FALSE;
 
-	while(counter<40)
+	while(counter<wantedsize)
 	{
-	 	res = read(fd,&sp.arr[counter],1);
+		res = read(fd,&sp.arr[counter],1);
 
 		if(res==-1)
 		{
 			printf("ERROR READING: QUITTING\n");
+			exit(-1);
 		}
-	// 	printf("CURRENT CHARACTER:0x%02x\n",(unsigned char)readchar[counter]);
+					// 	printf("CURRENT CHARACTER:0x%02x\n",(unsigned char)readchar[counter]);
 
 
-	 	if(first7E==TRUE){
-	 		if(sp.arr[counter]==0x7E){
-	 			printf("FOUND 2ND 7E %d\n",counter);
-					sp.size=counter+1;
-	 			  sp.arr = realloc(sp.arr,sp.size);
-					printf("SIZEOF sp.arr AFTER REALLOC %d\n",sp.size);
-	 			break;
-	 		}
-	 	}
+		if(first7E==TRUE){
+			if(sp.arr[counter]==0x7E)
+			{
+				printf("FOUND 2ND 7E %d\n",counter);
+				sp.size=counter+1;
+				sp.arr = realloc(sp.arr,sp.size);
+				printf("SIZEOF sp.arr AFTER REALLOC %d\n",sp.size);
+				break;
+			}
+		}
 
-	 	if(sp.arr[counter]==0x7E){
-	 			first7E=TRUE;
-	 	}
-			counter++;
-  }
+		if(sp.arr[counter]==0x7E)
+		{
+			first7E=TRUE;
+		}
+		counter++;
+	}
+	return sp;
+}
 
+void validateStartPack(int fd){
+
+	DataPack sp=getPacket(fd,50);
 
 	printArray(sp.arr,sp.size);
 
@@ -459,28 +462,25 @@ void validateStartPack(int fd){
   }
 
   
-void readFileInfo(int fd, int size){
-	char* buf;
-	int res =0;
-	
-	read(fd, buf, size);
-	
-	ResponseArray responsePack;
-	DataPack dataPack;
-	dataPack.arr = buf;
-	responsePack = readInfPackHeader(fd, buf);
-	dataPack = destuff(dataPack);
-	
-	
-	
-	fwrite(dataPack.arr,1,dataPack.size,fp);
-	
-	
+void writeFileInfo(DataPack data){	
+	printf("Writing to file %s -> %d bytes\n",file.arr,data.size);
+	fwrite(data.arr,1,data.size,fp);
 }
+
+void openFile()
+{
+	fp=fopen(file.arr,"wb");
+	if(fp==NULL)
+	{
+		printf("FILE POINTER NULL, bye bye \n");
+		exit(-1);
+	}
+}
+
   
 void llread(int fd)
 {
-	 char readchar[4];
+
 
 	//TRYING TO READ JUST THE START PACKET
 	while(readStart == FALSE)
@@ -489,40 +489,78 @@ void llread(int fd)
 		validateStartPack(fd);
 
 		if(readStart==TRUE)
-		{
-
-			//reading actual file
-		 	 while (readFile==TRUE)
+		{	
+			openFile();
+			int SizeRead=0;
+		 	
+		 	while (SizeRead<file.fileSize)
 			{
-				//read first 4 bytes to readchar, send readchar to readInfpacketHeader
-				ResponseArray response =readInfPackHeader(fd,readchar);
-				if(response.arr[0]==ERR2)
+				DataPack filepacket;
+				while(packetValidated==FALSE)
 				{
-				  printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
-				  readStart=FALSE;
-				  break;
-			    }
+					filepacket=getPacket(fd,900);
+					//read first 4 bytes to readchar, send readchar to readInfpacketHeader
+					ResponseArray response =readInfPackHeader(fd,filepacket.arr);
+					if(response.arr[0]==ERR2)
+					{
+					  printf("Detected SET, Resent UA, going to try and read new Start Pack\n");
+					  readStart=FALSE;
+					  break;
+				    }
 
-			    switch(response.arr[2])
-				{
-					case 0x00:
-						//readFilePAcketInfo(pr);
-						//if no errors send RR0 ->FILE  INFO PACK Reading successful
-						writeBytes(fd,response.arr);
-						break;
-					case 0x40:
-						//readFilePAcketInfo(pr);
-						//if no errors send RR0 ->FILE INFO PACK Reading successful
-						writeBytes(fd,response.arr);
-						break;
-					case 0x01:
-						//sent REJ
-						writeBytes(fd,response.arr);
-						break;
+				    switch(response.arr[2])
+					{
+						case 0x00:
+							printf("Validated File Packet Header, gotta break it down now\n");
+							filepacket = destuffPack(filepacket);
+							if(filepacket.arr[0]==-1){
+								packetValidated=FALSE;
+								continue;
+							}
+							printf("Sending RR0\n");
+							printArray(response.arr,5);
+							writeBytes(fd,response.arr);
+							packetValidated=TRUE;
+							break;
+						case 0x40:
+							printf("Validated File Packet Header, gotta break it down now\n");
+							filepacket = destuffPack(filepacket);
+							if(filepacket.arr[0]==-1){
+								packetValidated=FALSE;
+								continue;
+							}
+						    printf("Sending RR1\n");
+						    printArray(response.arr,5);
+							writeBytes(fd,response.arr);
+							packetValidated=TRUE;
+							break;
+						case 0x01:
+							//sent REJ
+							printf("Sending REJ\n");
+							writeBytes(fd,response.arr);
+							packetValidated=FALSE;
+							continue;
+					}
+				}				
+				if(readStart==FALSE){
+					SizeRead=0;
+					break;
 				}
+				SizeRead+=filepacket.size;
+				writeFileInfo(filepacket);
+				packetValidated=FALSE;
+				if(SizeRead>=filepacket.size)
+					readFile=TRUE;
 			}
+			
 		}
+		if(readFile==TRUE)
+			break;
 	}
+	fclose(fp);
+
+	printf("llread ended with success");
+	return;
 
 }
 
@@ -584,7 +622,8 @@ int main(int argc, char** argv)
     }
 
     printf("New termios structure set\n");
-  	//llopen(fd,0);
+ 
+  	    llopen(fd,0);
 		llread(fd);
 		/*
 		//testing code for destuffing functions
