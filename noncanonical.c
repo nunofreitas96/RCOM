@@ -42,6 +42,7 @@ typedef struct{
 
 //char* file_name;
 FileData file;
+FILE *fp;
 //Funções GUIA1
 void writeBytes(int fd, char* message){
 
@@ -440,6 +441,26 @@ void validateStartPack(int fd){
 	 }
   }
 
+  
+void readFileInfo(int fd, int size){
+	char* buf;
+	int res =0;
+	
+	read(fd, buf, size);
+	
+	ResponseArray responsePack;
+	DataPack dataPack;
+	dataPack.arr = buf;
+	responsePack = readInfPackHeader(fd, buf);
+	dataPack = destuff(dataPack);
+	
+	
+	
+	fwrite(dataPack.arr,1,dataPack.size,fp);
+	
+	
+}
+  
 void llread(int fd)
 {
 	 char readchar[4];
