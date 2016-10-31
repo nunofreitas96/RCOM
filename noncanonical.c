@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #define BAUDRATE B9600
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -24,13 +25,13 @@ volatile int readStart = FALSE;
 //TODO retirar por problemas de memória
 
 typedef struct{
-	char arr[4];
+	char arr[5];
 } ResponseArray;
 
 typedef struct{
 	char* arr;
 	int size;
-} StartPack;
+} DataPack;
 
 typedef struct{
 	char* arr;
@@ -95,39 +96,30 @@ char readSupervision(int fd, int counter){
 	switch(counter){
 	case 0:
 		if(buf[0]==set[0]){
-			printf("SUCCESS\n");
 			return 0x76;
 		}
-		else printf("ERROR\n");
 		return ERR;
 	case 1:
 		if(buf[0]==set[1]){
 			return 0x03;
 		}
-		else printf("ERROR\n");
 		return ERR;
 	case 2:
 		if(buf[0]==set[2]){
-			printf("SUCCESS\n");
 			return 0x03;
 		}
-		else printf("ERROR\n");
 		return ERR;
 	case 3:
 		if(buf[0]==set[3]){
-			printf("SUCCESS\n");
 			return buf[0];
 		}
-		else printf("ERROR\n");
 		return ERR2;
 	case 4:
 		if(buf[0]==set[4]){
-			printf("SUCCESS\n");
 			return 0X7E;
 		}
-		else printf("ERROR\n");
 		return ERR;
- 	default:
+  default:
 		return ERR;
 	}
 }
@@ -165,72 +157,79 @@ void llopen(int fd, int type){
     writeBytes(fd,ua);
 }
 
-StartPack destuffPack(int fd,char* buf,size_t length)
+DataPack destuffPack(DataPack todestuff)
 {
-	//Buffer whose content will be destuffed
+	printf("BEFORE DESTUFF size:%d  \n",todestuff.size);
 	//TODO make this more accessible to other functions
-	char dbuf[length];
-	StartPack startPack;
+	char* dbuf=malloc(todestuff.size);
+	DataPack startPack;
 	// counter for finding all bytes to destuff, starts on 4 because from 0 to 3 is the header
 	//j is a counter to put bytes on dbuf;
-	int i =4;
-	int j =0;
+	int i;
+	for(i=0;i<4;i++){
+		dbuf[i]=todestuff.arr[i];
+	}
+
+	int j =4;
 
 	//Finding content that needs destuffing
-	while(TRUE){
-		if(buf[i] == 0x7E){
+	while(i<todestuff.size)
+	{
+		printf(" destuff[i]= %x , i:%d j:%d\n",todestuff.arr[i],i,j);
+		//no flags
+		if(todestuff.arr[i] != 0x7E && todestuff.arr[i] != 0x7D){
 
+		 dbuf[j] = todestuff.arr[i];
+		 i++;
+		 j++;
+		 continue;
+		}
+
+
+		if(todestuff.arr[i] == 0x7E){
+			if(i!=(todestuff.size-1))
+					//return err;
+			 dbuf[j] = todestuff.arr[i];
 			break;
 		}
-		//TODO verificar se eu percebi o destuffing corretamente
-		//counter measure de flags
-		if(buf[i] == 0x7d){
 
-			if(buf[i+1] == 0x5e){
+		if(todestuff.arr[i] == 0x7D){
+			if(todestuff.arr[i+1] == 0x5E){
 				dbuf[j] = 0x7E;
 				i = i+2;
-				if(i >= strlen(buf)){
-					printf("esse stuffing ta mal, oh boi");
+				j++;
+				if(i >= todestuff.size)
+				{
+					 printf("index out of bound");
 					//return ERR;
 				}
+				continue;
+		 	}
 
-			}
-			else if(buf[i+1] == 0x5f){
+			if(todestuff.arr[i+1] == 0x5d){
 				dbuf[j] = 0x7D;
 				i = i+2;
-					if(i >= strlen(buf)){
-					printf("esse stuffing ta mal, oh boi");
-					//return ERR;
-				}
+				j++;
+					if(i >= todestuff.size)
+					{
+					 printf("index out of bound");
+					 //return ERR;
+				  }
+				continue;
 			}
-			else{
-				//TODO mudar antes de entrega a mensagem de erro
-				printf("esse stuffing ta mal, oh boi");
-				//return ERR;
-			}
-		}
-		//no flags
-		else{
-		dbuf[j] = buf[i];
-		i++;
-		if(i >= strlen(buf)){
-					printf("esse stuffing ta mal, oh boi");
-					//return ERR;
-				}
-		}
 
-	j++;
-
+			//return err;
+		}
 
 	}
 
-	memcpy(startPack.arr,dbuf,strlen(dbuf));
-	printf("Received header with no errors, printed RR\n");
+	startPack.size=j+1;
+  startPack.arr=dbuf;
+	printf("AFTER DESTUFF Size:%d \n",startPack.size);
+
+
 
 	return startPack;
-
-
-
 }
 
 void printArray(char* arr,size_t length){
@@ -243,51 +242,45 @@ void printArray(char* arr,size_t length){
 
 ResponseArray readInfPackHeader(int fd, char* buf){
 
-	//TODO Verificar se está tudo correto
-
 	//Verifying that the header of the package is correct
 	ResponseArray response;
 	char c1alt;
-	char REJ[4]={0x7E,0x03,0x01,0x03^0x01};
-	char restartERR2[4]={ERR2,ERR2,ERR2,ERR2};
+	char REJ[5]={0x7E,0x03,0x01,0x03^0x01,0x7E};
+	char restartERR2[5]={ERR2,ERR2,ERR2,ERR2,ERR2};
 
 
 	//Verifying starting flag
 	if(buf[0] != 0x7E){
 		printf("first byte isn't flag error \n");
-		memcpy(response.arr,REJ,4);
+		memcpy(response.arr,REJ,5);
 		return response;
 	}
 
 	//Verifying A
 	if(buf[1] != 0x03){
 		printf("read error in (A) \n");
-		memcpy(response.arr,REJ,4);
+		memcpy(response.arr,REJ,5);
 		return response;
 	}
 
 	//Verifying C1
 	if(buf[2] != 0x00 && buf[2] != 0x40){
+		if(buf[2]== 0x03){
+			if(buf[3]==0x00){
+				llopen(fd,1);
+				memcpy(response.arr,restartERR2,5);
+				return response;
+			}
+		}
 		printf("read error in (C)");
-		memcpy(response.arr,REJ,4);
+		memcpy(response.arr,REJ,5);
 		return response;
 	}
-	else if(buf[2]== 0x03){
-		if(buf[3]==0x00){
-			llopen(fd,1);
-			memcpy(response.arr,restartERR2,4);
-			return response;
-		}
 
-		else{
-			printf("Invalid information packet\n");
-		}
-
-	}
 	//Verifying BCC1
 	if((buf[1]^buf[2]) != buf[3]){
 		printf("A^C is not equal to BCC1 error");
-	    memcpy(response.arr,REJ,4);
+	  memcpy(response.arr,REJ,5);
 		return response;
 
 	}
@@ -300,74 +293,83 @@ ResponseArray readInfPackHeader(int fd, char* buf){
 		c1alt = 0x00;
 	}
 	//criating header of start package to send
-	char RR[4] = {0x7E,0x03,c1alt,0x03^c1alt};
-	memcpy(response.arr,RR,4);
-	printf("Received header with no errors, printed RR\n");
+	char RR[5] = {0x7E,0x03,c1alt,0x03^c1alt,0x7E};
+	memcpy(response.arr,RR,5);
+	printf("Received header with no errors\n");
 
 	return response;
 }
 
 
-void readStartPacketInfo(char * startPacket){
+ResponseArray readStartPacketInfo(char * startPacket, ResponseArray res)
+{
+	char tempI[5];
+	char temp[50];
+	int offset = 4;
+	char REJ[5]={0x7E,0x03,0x01,0x03^0x01,0x7E};
 
-char tempI[5];
-char temp[50];
-int offset = 4;
+	tempI[0]=startPacket[offset+6];
+	tempI[1]=startPacket[offset+5];
+	tempI[2]=startPacket[offset+4];
+	tempI[3]=startPacket[offset+3];
 
-tempI[0]=startPacket[offset+6];
-tempI[1]=startPacket[offset+5];
-tempI[2]=startPacket[offset+4];
-tempI[3]=startPacket[offset+3];
-
-int currentI=offset+6;
-sprintf(temp,"%02x%02x%02x%02x",(unsigned char)tempI[0],(unsigned char)tempI[1],(unsigned char)tempI[2],(unsigned char)tempI[3]);
-printf("%s\n",temp);
-//output is 00002ad8
-file.fileSize=strtol(temp,NULL,16);
-printf("FILESIZE IS %d \n",file.fileSize);
-
-
-
+	int currentI=offset+6;
+	sprintf(temp,"%02x%02x%02x%02x",(unsigned char)tempI[0],(unsigned char)tempI[1],(unsigned char)tempI[2],(unsigned char)tempI[3]);
+	printf("%s\n",temp);
+	//output is 00002ad8
+	file.fileSize=strtol(temp,NULL,16);
+	printf("FILESIZE IS %d \n",file.fileSize);
+	if(file.fileSize<0 || file.fileSize>4*pow(10,9))
+	{
+		memcpy(res.arr,REJ,5);
+		return res;
+	}
 
 	int fileNameSize = startPacket[currentI+2];
 	printf("FILE NAME SIZE IS IS %d \n",fileNameSize);
 	file.arr=malloc(fileNameSize+1);
+
+	if(fileNameSize<=0)
+	{
+		memcpy(res.arr,REJ,5);
+		return res;
+	}
+
 	int i =0;
 
-	while( i < fileNameSize){
+	while( i < fileNameSize)
+	{
 		file.arr[i] = startPacket[currentI+3+i];
 		i++;
 	}
+
+
+
+	//verify BCC2
 	printf("FILE NAME IS IS %s \n",file.arr);
+
+	return res;
 }
 
 
 
 void validateStartPack(int fd){
-//if ( p != (tmp = realloc(p, required_size)) )
-//	memcpy(tmp, p = tmp, required_size);
- 	StartPack sp;
+
+ 	DataPack sp;
   sp.size=50;
 	sp.arr=malloc(sp.size);
 
 
 	int res=-1;
   int counter=0;
+  int first7E = FALSE;
 
-   /*while(counter<26)
-	 {
-			res = read(fd,&readchar[counter],1);
-			if(res==-1){
-				printf("ERROR READING: QUITTING\n");
-			}
-			counter++;
-	 }*/
-	 int first7E = FALSE;
-	 while(counter<40)
-	 {
+	while(counter<40)
+	{
 	 	res = read(fd,&sp.arr[counter],1);
 
-		if(res==-1){
+		if(res==-1)
+		{
 			printf("ERROR READING: QUITTING\n");
 		}
 	// 	printf("CURRENT CHARACTER:0x%02x\n",(unsigned char)readchar[counter]);
@@ -387,18 +389,15 @@ void validateStartPack(int fd){
 	 			first7E=TRUE;
 	 	}
 			counter++;
+  }
 
-	}
 
-
-		printArray(sp.arr,sp.size);
+	printArray(sp.arr,sp.size);
 
 
 	ResponseArray response =readInfPackHeader(fd,sp.arr);
 	//read first 4 bytes to sp.arr, send sp.arr to readInfpacketHeader
-	printf("reading the response that I received from readInfPackHeader\n");
-	printArray(response.arr,4);
-	printf("END OF RESPONSE READ2323:\n");
+
 
 	if(response.arr[0]==ERR2)
 	{
@@ -407,24 +406,39 @@ void validateStartPack(int fd){
 		return;
 	}
 
+
+  if(response.arr[2]==0x01){
+		readStart=FALSE;
+		return;
+	}
+
+
 	switch(sp.arr[2])
 	{
 		case 0x00:
 		printf("Validated Starter Packet Header, gotta break it down now\n");
-		readStartPacketInfo(sp.arr);
-		//if no errors send RR0 ->START PACK Reading successful, ready to begin reading actual file
-		//StartPack startPack = destuffPack(fd, sp.arr, strlen(sp.arr)-4);
+		//DataPack startPack = destuffPack(fd, sp.arr, strlen(sp.arr)-4);
+
+		response = readStartPacketInfo(sp.arr,response);
+		printf("reading the response that I received from readStartPAcketInfo\n");
+		printArray(response.arr,5);
+		printf("END OF RESPONSE READ2323:\n");
 		writeBytes(fd,response.arr);
+		if(response.arr[2]==0x01){
+			readStart=FALSE;
+			return;
+		}
 		readStart=TRUE;
 		break;
 
-		case 0x01:
+    default:
 		printf("Rejecting invalid Starter Packet, try again \n");
+		printArray(response.arr,5);
 		writeBytes(fd,response.arr);
 		readStart=FALSE;
 		break;
 	 }
-}
+  }
 
 void llread(int fd)
 {
@@ -440,7 +454,7 @@ void llread(int fd)
 		{
 
 			//reading actual file
-		 	 while (readFile==TRUE)
+		 	 while (readStart==TRUE)
 			{
 				//read first 4 bytes to readchar, send readchar to readInfpacketHeader
 				ResponseArray response =readInfPackHeader(fd,readchar);
@@ -533,8 +547,27 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 	//llopen(fd,0);
-		llread(fd);
-
+		//llread(fd);
+		/*
+		//testing code for destuffing functions
+		DataPack testpack;
+		testpack.size=10;
+		testpack.arr=malloc(testpack.size);
+		testpack.arr[0]=0x00;
+		testpack.arr[1]=0x00;
+		testpack.arr[2]=0x00;
+		testpack.arr[3]=0x00;
+		testpack.arr[4]=0x40;
+		testpack.arr[5]=0x7D;
+		testpack.arr[6]=0x5D;
+		testpack.arr[7]=0x7D;
+		testpack.arr[8]=0x5e	;
+		testpack.arr[9]=0x7E;
+		printArray(testpack.arr,testpack.size);
+		testpack=destuffPack(testpack);
+		printArray(testpack.arr,testpack.size);
+		//end of testing code for destuffing functions
+		*/
 
     sleep(2);
     tcsetattr(fd,TCSANOW,&oldtio);
