@@ -29,31 +29,6 @@ volatile int STOP=FALSE;
 FILE *fp;
 int flag=0, conta=1;
 
-/*int readREJ(int fd)
-{
-	unsigned char C = 0x01;
-	int k = readSupervisionPacket(C,fd);
-	if (k == 0)
-	{
-		REJ_RECEIVED = TRUE;
-		printf("REJ received alright\n");
-	}
-	return k;
-}
-
-int readRR(int fd)
-{
-	unsigned char C = 0x05;
-	int k = readSupervisionPacket(C,fd);
-	if (k == 0)
-	{
-		RR_RECEIVED = TRUE;
-		printf("RR received alright\n");
-	}
-	return k;
-}*/
-
-
 void switchC1()
 {
 	if (C1 == 0x00)
