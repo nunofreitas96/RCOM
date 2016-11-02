@@ -1,7 +1,7 @@
 /*Non-Canonical Input Processing*/
-
-
 #include "utils.h"
+
+char lastBCC2=0xFF;
 //Funções GUIA1
 void writeBytes(int fd, char* message){
 
@@ -121,14 +121,15 @@ void llopen(int fd, int type){
     writeBytes(fd,ua);
 }
 
-DataPack makeErrorPack()
+DataPack makeErrorPack(int errno)
 {
 	DataPack errpack;
 	errpack.size=1;
 	errpack.arr=malloc(errpack.size);
-	errpack.arr[0]=-1;
+	errpack.arr[0]=errno;
 	return errpack;
 }
+
 
 int validateBCC2(DataPack dataPacket,unsigned char BCC2){
 	int i;
@@ -164,7 +165,7 @@ DataPack destuffPack(DataPack todestuff)
 		
 		if(todestuff.arr[i] == 0x7E){
 					printf("Stuffing failed, found 0x7E before final position of packet\n");
-					return makeErrorPack();
+					return makeErrorPack(-1);
 		}
 
 		//no flags
@@ -192,14 +193,14 @@ DataPack destuffPack(DataPack todestuff)
 				continue;
 			}
 			printf("Stuffing failed, found unstuffed 0x7D\n");
-			return makeErrorPack();
+			return makeErrorPack(-1);
 		}
 
 	}
 
 	if(todestuff.arr[todestuff.size-1]!=0x7E){
 		printf("Invalid Packet, found 0x%02x at final position of packet, should be 0x7E\n",(unsigned char)todestuff.arr[todestuff.size-1]);
-		return makeErrorPack();
+		return makeErrorPack(-1);
 	}
 
   dataPacket.size=j;
@@ -207,11 +208,15 @@ DataPack destuffPack(DataPack todestuff)
 
 	if(validateBCC2(dataPacket,(unsigned char)todestuff.arr[todestuff.size-2])==-1){
 		printf("BCC2 doesn't match with BCC2 of received contents, please resend Packet\n");
-		return makeErrorPack();
+		return makeErrorPack(-1);
 	}
 
+	if(lastBCC2!=(unsigned char)todestuff.arr[todestuff.size-2]){
+		lastBCC2=(unsigned char)todestuff.arr[todestuff.size-2];
+		return dataPacket;
+	}
+	else return makeErrorPack(-2);
 	
-	return dataPacket;
 }
 
 
@@ -402,6 +407,12 @@ void validateStartPack(int fd){
 			readStart=FALSE;
 			return;
 		}
+		if(sp.arr[0]==-2){
+			readStart=FALSE;
+			response = readStartPacketInfo(sp.arr,response);
+			writeBytes(fd,response.arr);
+			return;
+		}
 		response = readStartPacketInfo(sp.arr,response);
 		writeBytes(fd,response.arr);
 		if(response.arr[2]==0x01){
@@ -484,6 +495,12 @@ void llread(int fd)
 								packetValidated=FALSE;
 								continue;
 							}
+							if(filepacket.arr[0]==-2){
+								printf("ReSending RR0\n");
+								write(fd,response.arr,5);
+								packetValidated=FALSE;
+								continue;
+							}
 							printf("Sending RR0\n");
 							write(fd,response.arr,5);
 							packetValidated=TRUE;
@@ -496,6 +513,12 @@ void llread(int fd)
 							    free(filepacket.arr);
 							    memcpy(response.arr,REJ,5);
 							    printf("Sending REJ\n");
+								write(fd,response.arr,5);
+								packetValidated=FALSE;
+								continue;
+							}
+							if(filepacket.arr[0]==-2){
+								printf("ReSending RR1\n");
 								write(fd,response.arr,5);
 								packetValidated=FALSE;
 								continue;
