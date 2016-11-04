@@ -369,6 +369,8 @@ DataPack getPacketRead(int fd,int wantedsize){
 
 		if(sp.arr[counter]==0x7E)
 		{
+			if(counter!=0)
+				return makeErrorPack(-1);
 			first7E=TRUE;
 		}
 		counter++;
@@ -469,6 +471,12 @@ void llread(int fd)
 				while(packetValidated==FALSE)
 				{
 					filepacket=getPacketRead(fd,PACKET_SIZE+PACKET_SIZE/2);
+					if(filepacket.arr[0]==-1){
+						printf("Invalid trama!\n");
+						packetValidated=FALSE;
+						continue;
+					}
+
 					ResponseArray response =readInfPackHeader(fd,filepacket.arr);
 				
 					printf("PRINTING JUST THE FIRST 5 BYTES OF PACKET\n");

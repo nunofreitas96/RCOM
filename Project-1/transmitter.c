@@ -454,6 +454,7 @@ int llopen(int fd)
 
 int llclose(int fd)
 {
+	int receivedDISC = FALSE;
 	int res = 0;
 	while(conta < 4)
 	{
@@ -464,9 +465,12 @@ int llclose(int fd)
 		while(!flag && STOP == FALSE)
 		{
 			res = sendReadDISC(fd,TRUE);
-			printf("DISCONNECT RECEIVED.\n");
-			if (res == 0)
-			STOP = TRUE;
+			
+			if (res == 0){
+				printf("DISCONNECT Received.\n");				
+				STOP = TRUE;
+				receivedDISC=TRUE;
+			}
 		}
 
 		if(STOP==TRUE)
@@ -478,7 +482,11 @@ int llclose(int fd)
 		else
 			flag=0;
 	}
-
+	if(receivedDISC==FALSE){
+		printf("Did not received DISCONNECT from Receiver, try sending file again\n");
+		return -1;	
+	
+	}
 	res = writeBytes(fd);
 	if (res == 5)
 	{
@@ -486,7 +494,7 @@ int llclose(int fd)
 		printf("------END------\n");
 	}
 
-	return -1;
+	return 0;
 }
 
 int cycle(int fd)
@@ -519,7 +527,8 @@ int cycle(int fd)
 			finish = 1;
 	}
 
-	llclose(fd);
+	if(llclose(fd)==-1)
+		cycle(fd);
 	return 0;
 }
 
