@@ -23,7 +23,7 @@ typedef	struct
 	char* password;
 }url_t;
 
-int parsePath(char * fullPath, url_t url;)
+int parsePath(char * fullPath, url_t *url)
 {
 	int i = 0, willHaveLogin = 0, counter = 0;
 	
@@ -41,7 +41,7 @@ int parsePath(char * fullPath, url_t url;)
 		i++;
 	}
 
-	counter = 6; //'['
+	counter = 6;
 
 	//Check if path will recquire username and password
 	if (fullPath[counter] == '[')
@@ -51,6 +51,7 @@ int parsePath(char * fullPath, url_t url;)
 
 	int ctrl = 0;
 
+	//This if statement makes sure that user and password are correctly stored in the struct
 	if (willHaveLogin)
 	{
 		counter++;
@@ -64,13 +65,14 @@ int parsePath(char * fullPath, url_t url;)
 			counter++;
 			ctrl++;
 		}
-		url.username=malloc(ctrl);
-		strncpy(url.username,tempUser,ctrl);
+		url->username=malloc(ctrl);
+		strncpy(url->username,tempUser,ctrl);
 		free(tempUser);
 		counter++;
 
 		ctrl  =0;
 		char * tempPass = malloc(255);
+
 		//Reading password
 		while (fullPath[counter] != '@')
 		{
@@ -78,8 +80,8 @@ int parsePath(char * fullPath, url_t url;)
 			counter++;
 			ctrl++;
 		}
-		url.password=malloc(ctrl);
-		strncpy(url.password,tempPass,ctrl);
+		url->password=malloc(ctrl);
+		strncpy(url->password,tempPass,ctrl);
 		free(tempPass);
 
 		if (fullPath[counter] != '@' )
@@ -97,6 +99,16 @@ int parsePath(char * fullPath, url_t url;)
 		}
 			counter++;
 	}
+	else
+	{
+		//If there's no username and password, these fields become 'NULL'
+		url->username = malloc(sizeof("NULL"));
+		strncpy(url->username,"NULL",sizeof("NULL"));
+
+		url->password = malloc(sizeof("NULL"));
+		strncpy(url->password,"NULL",sizeof("NULL"));
+	}
+
 
 
 
@@ -108,11 +120,11 @@ int parsePath(char * fullPath, url_t url;)
 		counter++;
 		ctrl++;
 	}
-	url.host=malloc(ctrl+1);
-	strncpy(url.host,tempHost,ctrl+1);
+	url->host=malloc(ctrl+1);
+	strncpy(url->host,tempHost,ctrl+1);
 	free(tempHost);
 
-	counter++;
+	//counter++;
 	ctrl = 0;
 	char * tempPath = malloc(255);
 	while (fullPath[counter] != '\0')
@@ -122,10 +134,9 @@ int parsePath(char * fullPath, url_t url;)
 		counter++;
 	}
 
-	url.path=malloc(ctrl);
-	strncpy(url.path,tempPath,ctrl);
+	url->path=malloc(ctrl);
+	strncpy(url->path,tempPath,ctrl);
 	free(tempHost);
-
 	return 0;
 }
 
@@ -141,8 +152,11 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+
+	url_t * url;
+
 	//Checking for errors whilst parsing url path
-	int aux = parsePath(argv[1]);
+	int aux = parsePath(argv[1], url);
 	if(aux != 0)
 	{
 		printf("Error on parsing Path - parsePath().\n");
