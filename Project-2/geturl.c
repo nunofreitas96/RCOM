@@ -109,9 +109,6 @@ int parsePath(char * fullPath, url_t *url)
 		strncpy(url->password,"NULL",sizeof("NULL"));
 	}
 
-
-
-
 	ctrl = 0;
 	char * tempHost = malloc(255);
 	while (fullPath[counter] != '/')
@@ -145,10 +142,10 @@ int main(int argc, char** argv)
 	//Checking valid arguments
 	if (argc != 2) 
 	{
-		printf("WARNING: Wrong usage.\n");
+		printf("\nWARNING: Wrong usage.\n");
 		printf("Usage 1: ftp://[<user>:<password>@]<host>/<url-path>\n");
 		printf("OR\n");
-		printf("Usage 2(Annonymous): ftp://<host>/<url-path>\n");
+		printf("Usage 2: ftp://<host>/<url-path>\n");
 		return 1;
 	}
 
