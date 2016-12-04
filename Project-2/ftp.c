@@ -2,6 +2,14 @@
 //************************************************************************************************************
 //TODO create ftp struct - data e control se passarem a ser partes de uma struct serão mias faceis de controlar 
 //**************************************************************************************************************
+
+typedef struct ftp{
+	int data;
+	int control;
+	
+}ftpSockets;
+
+
 static int connectSocket(const char* ip, int port) {
 	int sockfd;
 	struct sockaddr_in server_addr;
@@ -28,12 +36,12 @@ static int connectSocket(const char* ip, int port) {
 	return sockfd;
 }
 
-int connectFTP( const char* ip, int port, int control, int* data){
+int connectFTP( const char* ip, int port, ftpSockets* ftp){
 	char rd[1024];
 
-	data = 0;
+	ftp->data = 0;
 
-	if ((control = connectSocket(ip, port)) < 0) {
+	if ((ftp->control = connectSocket(ip, port)) < 0) {
 		printf("Socket cannot be connected.\n");
 		return 1;
 	}
@@ -44,7 +52,7 @@ int connectFTP( const char* ip, int port, int control, int* data){
 
 }
 
-int loginFTP(int control, const char* user, const char* password){
+int loginFTP(const char* user, const char* password, ftpSockets* ftp){
 	char userTest[1024];
 	char passTest[1024];
 
@@ -52,40 +60,40 @@ int loginFTP(int control, const char* user, const char* password){
 	sprintf(passTest, "pass %s\n", password)
 
 
-	if(sendFromFTP(control, userTest, sizeof(userTest))) {
+	if(sendFromFTP(ftp->control, userTest, sizeof(userTest))) {
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
 
-	if(readFromFTP(control, userTest, sizeof(userTest))){
+	if(readFromFTP(ftp->control, userTest, sizeof(userTest))){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
 
-	if(sendFromFTP(control, passTest, sizeof(passTest))){
+	if(sendFromFTP(ftp->control, passTest, sizeof(passTest))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
 
 
-	if(readFromFTP(control, passTest, sizeof(passTest))){
+	if(readFromFTP(ftp->control, passTest, sizeof(passTest))){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
 }
 
-int changeDirFTP(int control, const char* path){
+int changeDirFTP(const char* path, ftpSockets* ftp){
 	char currPath[1024];
 
 	sprintf(currPath, "XWD %s\n", path);
 
-	if(sendFromFTP(control, currPath, sizeof(currPath))){
+	if(sendFromFTP(ftp->control, currPath, sizeof(currPath))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
 
 
-	if(readFromFTP(control, currPath, sizeof(currPath))){
+	if(readFromFTP(ftp->control, currPath, sizeof(currPath))){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
@@ -95,18 +103,18 @@ int changeDirFTP(int control, const char* path){
 
 
 
-int passiveModeFTP(int control){
+int passiveModeFTP(ftpSockets* ftp){
 	char passive[1024];
 	char passiveIp[1024];
 	sprintf(passive, "PASV\n");
 
-	if(sendFromFTP(control, retr, sizeof(retr))){
+	if(sendFromFTP(ftp->control, retr, sizeof(retr))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
 
 
-	if(readFromFTP(control, retr, sizeof(retr))){
+	if(readFromFTP(ftp->control, retr, sizeof(retr))){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
@@ -120,7 +128,7 @@ int passiveModeFTP(int control){
 
 	int port = port1*256 + port2;
 
-	if((data = connectSocket(passiveIp,port)) < 0){
+	if((ftp->data = connectSocket(passiveIp,port)) < 0){
 		printf("Passive mode cannot be entered.")
 		return 1;
 	}
@@ -129,18 +137,18 @@ int passiveModeFTP(int control){
  
 }
 
-int copyFileFTP(control, const char* filename){
+int copyFileFTP(const char* filename, ftpSockets* ftp){
 	char retr[1024];
 
 	sprintf(retr, "RETR %s\n", filename);
 
-	if(sendFromFTP(control, retr, sizeof(retr))){
+	if(sendFromFTP(ftp->control, retr, sizeof(retr))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
 
 
-	if(readFromFTP(control, retr, sizeof(retr))){
+	if(readFromFTP(ftp->control, retr, sizeof(retr))){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
@@ -149,7 +157,7 @@ int copyFileFTP(control, const char* filename){
 
 }
 
-int downloadFileFTP(int* control,int* data, const char* data){
+int downloadFileFTP(const char* filename, ftpSockets* ftp){
 	FILE* file;
 	int nbytes;
 
@@ -160,9 +168,9 @@ int downloadFileFTP(int* control,int* data, const char* data){
 
 	char buf[1024];
 
-	while((bytes = read(data, buf, sizeof(buf))) ){
+	while((bytes = read(ftp->data, buf, sizeof(buf))) ){
 		if (bytes < 0) {
-			printf("Data socket sent nothing.\n");
+			printf("ftp->data socket sent nothing.\n");
 			return 1;
 		}
 
@@ -173,22 +181,22 @@ int downloadFileFTP(int* control,int* data, const char* data){
 	}
 
 	fclose(file);
-	close(data);
+	close(ftp->data);
 
 	return 0;
 }
 
-int disconnectFromFTP(int control){
+int disconnectFromFTP(ftpSockets* ftp){
 	char disc[1024];
 
 	sprintf(disc, "QUIT\n");
 
-	if(ftpSend(control, disc, strlen(disc))){
+	if(ftpSend(ftp->control, disc, strlen(disc))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
 
-	if(readFromFTP(control, retr, sizeof(retr))){
+	if(readFromFTP(ftp->control, retr, sizeof(retr))){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
@@ -196,10 +204,10 @@ int disconnectFromFTP(int control){
 	return 0;
 }
 
-int sendToFTP(int control, const char* str, size_t size){
+int sendToFTP(const char* str, size_t size, ftpSockets* ftp){
 	int bytes; 
 
-	if((bytes= write(control,str,size))<= 0){
+	if((bytes= write(ftp->control,str,size))<= 0){
 		//mensagem de erro
 	}
 
@@ -209,8 +217,8 @@ int sendToFTP(int control, const char* str, size_t size){
 }
 
 
-int readFromFTP(int control, const char* str, size_t size){
-	FILE fp = fdopen(control, "r");
+int readFromFTP(const char* str, size_t size, ftpSockets* ftp){
+	FILE fp = fdopen(ftp->control, "r");
 
 
 	do {
