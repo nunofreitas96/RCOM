@@ -340,7 +340,9 @@ int parsePath(char * fullPath, url_t *url)
 
 	url->path=malloc(ctrl);
 	strncpy(url->path,tempPath,ctrl-fileCounter);
-	strncpy(url->filename,filename,fileCounter+1); 	
+	url->filename=malloc(fileCounter+1);
+	strncpy(url->filename,filename,fileCounter); 	
+
 	free(tempHost);
 	return 0;
 }
@@ -350,8 +352,8 @@ int getIpByHost(url_t* url)
 {
 	struct hostent *h;
 
-	/*printf("Host name h  : %s\n", h->h_name);
-	printf("Host name url  : %s\n", url->host);*/
+
+	printf("Host name url  : %s\n", url->host);
 
 	if ((h=gethostbyname(url->host)) == NULL) {  
 		herror("gethostbyname");
@@ -360,6 +362,7 @@ int getIpByHost(url_t* url)
 
     
 	char* ip = inet_ntoa(*((struct in_addr *)h->h_addr));
+	url->ip=malloc(sizeof(ip));
 	strcpy(url->ip, ip);
 	printf("%s\n",url->ip);
 	return 0;
@@ -372,35 +375,35 @@ int main(int argc, char** argv){
 		exit(0);
 	}
 	
-	url_t* url;
-
-	if(parsePath(argv[1] , url)){
+	url_t url;
+	
+	if(parsePath(argv[1] , &url)){
 		perror("Failed on parsing path");
 		exit(0);
 	}
 
-	printf("path: %s\n", url->path);
-	printf("host: %s\n", url->host);
-	printf("username: %s\n", url->username);
-	printf("pass: %s\n", url->password);
-	printf("filename: %s\n", url->filename);
+	printf("path: %s\n", url.path);
+	printf("host: %s\n", url.host);
+	printf("username: %s\n", url.username);
+	printf("pass: %s\n", url.password);
+	printf("filename: %s\n", url.filename);
 
-	getIpByHost(url);
+	getIpByHost(&url);
 	
 	int port = 21;
 	ftpSockets ftp;
 	
-	connectFTP(url->ip, port, &ftp);
+	connectFTP(url.ip, port, &ftp);
 	
-	loginFTP(url->username,url->password, &ftp);
+	loginFTP(url.username,url.password, &ftp);
 	
-	changeDirFTP(url->path,&ftp);
+	changeDirFTP(url.path,&ftp);
 
 	passiveModeFTP(&ftp);
 	
-	copyFileFTP(url->filename,&ftp);
+	copyFileFTP(url.filename,&ftp);
 	
-	downloadFileFTP(url->filename,&ftp);
+	downloadFileFTP(url.filename,&ftp);
 	
 	disconnectFromFTP(&ftp);
 	
