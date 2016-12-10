@@ -1,30 +1,5 @@
-#include <stdio.h>
-#include <sys/types.h>
-//#include <sys/socket.h>
-//#include <netinet/in.h>
-//#include <arpa/inet.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
-//#include <netdb.h>
-#include <strings.h>
-#include <errno.h>
-#include <string.h>
 
-#define STR_SIZE 256
-#define TRUE 1
-#define FALSE 0
-
-typedef	struct 
-{	
-	char* host;
-	char* path;
-	char* username;
-	char* password;
-	char* ip;
-	char* filename;
-	
-}url_t;
+#include "geturl.h"
 
 int parsePath(char * fullPath, url_t *url)
 {
@@ -158,52 +133,14 @@ int getIpByHost(url_t* url) {
 	struct hostent *h;
 
             
-/*
-struct hostent {
-	char    *h_name;	Official name of the host. 
-    	char    **h_aliases;	A NULL-terminated array of alternate names for the host. 
-	int     h_addrtype;	The type of address being returned; usually AF_INET.
-    	int     h_length;	The length of the address in bytes.
-	char    **h_addr_list;	A zero-terminated array of network addresses for the host. 
-				Host addresses are in Network Byte Order. 
-};
 
-#define h_addr h_addr_list[0]	The first address in h_addr_list. 
-*/
-        if ((h=gethostbyname(url)) == NULL) {  
+        if ((h=gethostbyname(url->host)) == NULL) {  
             herror("gethostbyname");
             exit(1);
         }
 
         //printf("Host name  : %s\n", h->h_name);
-        char* ip = inet_ntoa(*((struct in_addr *)h->h_addr)));
-		strcopy(url->ip, ip);
+        char* ip = inet_ntoa(*((struct in_addr *)h->h_addr));
+		strncpy(url->ip, ip, strlen(ip));
         return 0;
 }
-
-/*
-int main(int argc, char** argv) 
-{
-	//Checking valid arguments
-	if (argc != 2) 
-	{
-		printf("\nWARNING: Wrong usage.\n");
-		printf("Usage 1: ftp://[<user>:<password>@]<host>/<url-path>\n");
-		printf("OR\n");
-		printf("Usage 2: ftp://<host>/<url-path>\n");
-		return 1;
-	}
-
-
-	url_t * url;
-
-	//Checking for errors whilst parsing url path
-	int aux = parsePath(argv[1], url);
-	if(aux != 0)
-	{
-		printf("Error on parsing Path - parsePath().\n");
-		return 1;
-	}
-
-	return 0;
-}*/

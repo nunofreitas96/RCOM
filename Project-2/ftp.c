@@ -1,13 +1,6 @@
 
-//************************************************************************************************************
-//TODO create ftp struct - data e control se passarem a ser partes de uma struct serão mias faceis de controlar 
-//**************************************************************************************************************
+#include "ftp.h"
 
-typedef struct{
-	int data;
-	int control;
-	
-}ftpSockets;
 
 
 static int connectSocket(const char* ip, int port) {
@@ -46,7 +39,10 @@ int connectFTP( const char* ip, int port, ftpSockets* ftp){
 		return 1;
 	}
 
-	
+	if(readFromFTP(ftp->control, rd, sizeof(rd))){
+		printf("Read from FTP failed.\n");
+		return 1;
+	}
 
 	return 0;
 
@@ -60,7 +56,7 @@ int loginFTP(const char* user, const char* password, ftpSockets* ftp){
 	sprintf(passTest, "pass %s\n", password);
 
 
-	if(sendFromFTP(ftp->control, userTest, sizeof(userTest))) {
+	if(sendToFTP(ftp->control, userTest, sizeof(userTest))) {
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
@@ -70,7 +66,7 @@ int loginFTP(const char* user, const char* password, ftpSockets* ftp){
 		return 1;
 	}
 
-	if(sendFromFTP(ftp->control, passTest, sizeof(passTest))){
+	if(sendToFTP(ftp->control, passTest, sizeof(passTest))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
@@ -80,6 +76,8 @@ int loginFTP(const char* user, const char* password, ftpSockets* ftp){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
+
+	return 0;
 }
 
 int changeDirFTP(const char* path, ftpSockets* ftp){
@@ -87,7 +85,7 @@ int changeDirFTP(const char* path, ftpSockets* ftp){
 
 	sprintf(currPath, "XWD %s\n", path);
 
-	if(sendFromFTP(ftp->control, currPath, sizeof(currPath))){
+	if(sendToFTP(ftp->control, currPath, sizeof(currPath))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
@@ -108,7 +106,7 @@ int passiveModeFTP(ftpSockets* ftp){
 	char passiveIp[1024];
 	sprintf(passive, "PASV\n");
 
-	if(sendFromFTP(ftp->control, passive, sizeof(passive))){
+	if(sendToFTP(ftp->control, passive, sizeof(passive))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
@@ -121,15 +119,16 @@ int passiveModeFTP(ftpSockets* ftp){
 
 	int ip1,ip2,ip3,ip4;
 	int port1, port2;
-	if((sscanf(pasv,"227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)", &ip1,&ip2,&ip3,&ip4,&ip4,&port1,&port2)) < 0){
+	if((sscanf(passive,"227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)", &ip1,&ip2,&ip3,&ip4,&port1,&port2)) < 0){
 		printf("Response is wrong.");
 		return 1;
 	}
 
+	sscanf(passiveIp,"%d.%d.%d.%d",&ip1,&ip2,&ip3,&ip4);
 	int port = port1*256 + port2;
 
 	if((ftp->data = connectSocket(passiveIp,port)) < 0){
-		printf("Passive mode cannot be entered.")
+		printf("Passive mode cannot be entered.");
 		return 1;
 	}
 
@@ -142,7 +141,7 @@ int copyFileFTP(const char* filename, ftpSockets* ftp){
 
 	sprintf(retr, "RETR %s\n", filename);
 
-	if(sendFromFTP(ftp->control, retr, sizeof(retr))){
+	if(sendToFTP(ftp->control, retr, sizeof(retr))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
@@ -153,13 +152,13 @@ int copyFileFTP(const char* filename, ftpSockets* ftp){
 		return 1;
 	}
 
-	return O;
+	return 0;
 
 }
 
 int downloadFileFTP(const char* filename, ftpSockets* ftp){
 	FILE* file;
-	int nbytes;
+	int bytes;
 
 	if (!(file = fopen(filename, "w"))) {
 		printf("File cannot be opened.\n");
@@ -191,12 +190,12 @@ int disconnectFromFTP(ftpSockets* ftp){
 
 	sprintf(disc, "QUIT\n");
 
-	if(ftpSend(ftp->control, disc, strlen(disc))){
+	if(sendToFTP(ftp->control, disc, strlen(disc))){
 		printf("Sending to FTP failed.\n");
 		return 1;
 	}
 
-	if(readFromFTP(ftp->control, retr, sizeof(retr))){
+	if(readFromFTP(ftp->control, disc, sizeof(disc))){
 		printf("Read from FTP failed.\n");
 		return 1;
 	}
@@ -204,28 +203,90 @@ int disconnectFromFTP(ftpSockets* ftp){
 	return 0;
 }
 
-int sendToFTP(const char* str, size_t size, ftpSockets* ftp){
+int sendToFTP(int ftpControl, char* str, size_t size){
 	int bytes; 
 
-	if((bytes= write(ftp->control,str,size))<= 0){
+	if((bytes= write(ftpControl,str,size))<= 0){
 		//mensagem de erro
 	}
 
-	printf("Bytes written: %d ; Info written: %d", bytes, str);
+	printf("Bytes written: %d ; Info written: %s", bytes, str);
 
 	return 0;
 }
 
 
-int readFromFTP(const char* str, size_t size, ftpSockets* ftp){
-	FILE fp = fdopen(ftp->control, "r");
+int readFromFTP(int ftpControl, char* str, size_t size){
+	FILE* fp = fdopen(ftpControl, "r");
 
 
 	do {
 		memset(str, 0, size);
-		str = fgets(str, size, fp);
+		fgets(str, size, fp);
 		printf("%s", str);
 	} while (!('1' <= str[0] && str[0] <= '5') || str[3] != ' ');
 
+	return 0;
+}
+
+int main(int argc, char** argv){
+	
+	if(argc != 2){
+		perror("Incorrect number of arguments");
+		exit(0);
+		
+	}
+	
+	
+	url_t* url;
+	if(parsePath(argv[1] , url)){
+		perror("Failed on parsing path");
+		exit(0);
+	}
+	
+	if(getIpByHost(url)){
+		perror("Failed on obtaining ID");
+		exit(0);
+	}
+	
+	int port = 21;
+	ftpSockets* ftp;
+	
+	if(connectFTP(url->ip, port,ftp)){
+		perror("Failed on COnnecting to FTP");
+		exit(0);
+	}
+	
+	if(loginFTP(url->username,url->password, ftp)){
+		perror("Failed on COnnecting to FTP");
+		exit(0);
+	}
+	
+	if(changeDirFTP(url->path,ftp)){
+		perror("Failed on COnnecting to FTP");
+		exit(0);
+	}
+	
+	if(passiveModeFTP(ftp)){
+		perror("Failed to enter passive mode.");
+		exit(0);
+	}
+	
+	
+	if(copyFileFTP(url->filename,ftp)){
+		perror("Failed to copy file.");
+		exit(0);
+	}
+	
+	if(downloadFileFTP(url->filename,ftp)){
+		perror("Failed to download file");
+		exit(0);
+	}
+	
+	if(disconnectFromFTP(ftp)){
+		perror("Failed to disconnect from FTP");
+		exit(0);
+	}
+	
 	return 0;
 }
