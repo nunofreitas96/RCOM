@@ -13,10 +13,13 @@
 #include <netdb.h>
 #include <string.h>
 #include <errno.h>
-#include "geturl.h"
 
 #define SERVER_PORT 6000
 #define SERVER_ADDR "192.168.28.96"
+
+#define STR_SIZE 256
+#define TRUE 1
+#define FALSE 0
 
 
 typedef struct{
@@ -25,6 +28,19 @@ typedef struct{
 	
 }ftpSockets;
 
+typedef	struct 
+{	
+	char* host;
+	char* path;
+	char* username;
+	char* password;
+	char* filename;
+	char* ip;
+}url_t;
+
+int parsePath(char * fullPath, url_t *url);
+
+int getIpByHost(url_t* url);
 
 static int connectSocket(const char* ip, int port);
 
@@ -48,4 +64,4 @@ int readFromFTP(int ftpControl, char* str, size_t size);
 
 int main(int argc, char** argv);
 
-#endif
+#endif /* FTP_H */
